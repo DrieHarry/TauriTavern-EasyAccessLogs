@@ -1,0 +1,16 @@
+{
+  "display_name": "TauriTavern Easy Access Logs",
+  "loading_order": 100,
+  "dependencies": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "DrieHarry",
+  "version": "1.0.0",
+  "homePage": "https://github.com/DrieHarry/TauriTavern-EasyAccessLogs",
+  "auto_update": true,
+  "hooks": {
+    "activate": "onActivate",
+    "disable": "onDisable",
+    "delete": "onDelete"
+  }
+}

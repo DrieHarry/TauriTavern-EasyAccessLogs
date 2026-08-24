@@ -1,0 +1,43 @@
+<template id="tt-easy-access-logs-drawer-template">
+    <div id="tt-easy-access-logs-drawer" class="drawer tt-eal-drawer">
+        <div
+            class="drawer-toggle drawer-header tt-eal-drawer-toggle"
+            title="Developer & API Logs"
+            role="button"
+            tabindex="0"
+            aria-label="Developer & API Logs"
+            aria-expanded="false"
+            aria-controls="tt-easy-access-logs-panel"
+        >
+            <div class="drawer-icon fa-solid fa-file-waveform fa-fw closedIcon tt-eal-drawer-icon"></div>
+        </div>
+        <div id="tt-easy-access-logs-panel" class="drawer-content closedDrawer tt-eal-drawer-panel">
+            <div class="tt-eal-drawer-inner">
+                <header class="tt-eal-drawer-heading">
+                    <span class="tt-eal-kicker">TAURITAVERN</span>
+                    <h3>Developer &amp; API Logs</h3>
+                </header>
+                <p class="tt-eal-drawer-description">
+                    Inspect live API traffic, frontend messages, and host diagnostics.
+                </p>
+                <div class="tt-eal-drawer-actions">
+                    <button class="menu_button menu_button_icon tt-eal-launch" type="button" data-tt-eal-panel="llm">
+                        <i class="fa-solid fa-receipt fa-fw" aria-hidden="true"></i>
+                        <span>LLM &amp; Image API Logs</span>
+                        <i class="fa-solid fa-chevron-right tt-eal-launch-arrow" aria-hidden="true"></i>
+                    </button>
+                    <button class="menu_button menu_button_icon tt-eal-launch" type="button" data-tt-eal-panel="frontend">
+                        <i class="fa-solid fa-desktop fa-fw" aria-hidden="true"></i>
+                        <span>Frontend Logs</span>
+                        <i class="fa-solid fa-chevron-right tt-eal-launch-arrow" aria-hidden="true"></i>
+                    </button>
+                    <button class="menu_button menu_button_icon tt-eal-launch" type="button" data-tt-eal-panel="backend">
+                        <i class="fa-solid fa-server fa-fw" aria-hidden="true"></i>
+                        <span>Backend Logs</span>
+                        <i class="fa-solid fa-chevron-right tt-eal-launch-arrow" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
