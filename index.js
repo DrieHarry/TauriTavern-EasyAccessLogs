@@ -214,7 +214,8 @@ async function setTauriWindowFullscreen(enable) {
             return true;
         }
     } catch (error) {
-        console.warn('[TauriTavern Easy Access Logs] Tauri window setFullscreen failed:', error);
+        // Tauri 2 ACL sandbox restricts direct Rust window plugin invocation for extensions.
+        // HTML5 requestFullscreen natively handles window fullscreen in WebView2.
     }
     return false;
 }
@@ -352,12 +353,14 @@ async function openPanel(kind) {
     activePanelCleanup = panel.cleanup;
 
     try {
-        await callGenericPopup(panel.root, POPUP_TYPE.TEXT, '', {
+        const popupPromise = callGenericPopup(panel.root, POPUP_TYPE.TEXT, '', {
             okButton: 'Close',
             allowVerticalScrolling: true,
             wide: true,
             large: true,
         });
+        panel.onMount?.();
+        await popupPromise;
     } finally {
         panel.cleanup();
         if (activePanelCleanup === panel.cleanup) {
@@ -447,6 +450,12 @@ async function createLivePanel(kind, api) {
         });
     }
 
+    function scrollToLatest() {
+        if (list) {
+            list.scrollTop = list.scrollHeight;
+        }
+    }
+
     function render() {
         const query = search.value.trim().toLowerCase();
         const shown = entries.filter(entry => {
@@ -471,7 +480,9 @@ async function createLivePanel(kind, api) {
         list.replaceChildren(fragment);
         countStatus.textContent = `${shown.length} shown · ${entries.length} loaded${paused ? ' · paused' : ''}`;
         if (followLatest) {
-            list.scrollTop = list.scrollHeight;
+            scrollToLatest();
+            requestAnimationFrame(scrollToLatest);
+            setTimeout(scrollToLatest, 0);
         }
     }
 
@@ -492,7 +503,7 @@ async function createLivePanel(kind, api) {
     }, { passive: true });
     latestButton.addEventListener('click', () => {
         followLatest = true;
-        list.scrollTop = list.scrollHeight;
+        scrollToLatest();
     });
     pauseButton.addEventListener('click', async () => {
         paused = !paused;
@@ -547,6 +558,15 @@ async function createLivePanel(kind, api) {
 
     return {
         root,
+        onMount() {
+            if (followLatest) {
+                scrollToLatest();
+                requestAnimationFrame(scrollToLatest);
+                setTimeout(scrollToLatest, 0);
+                setTimeout(scrollToLatest, 50);
+                setTimeout(scrollToLatest, 150);
+            }
+        },
         cleanup() {
             if (disposed) {
                 return;
@@ -1037,8 +1057,6 @@ function createTextBlock(title, copyLabel, softWrap = true, onToggleWrap = null,
         const label = isFullscreen ? `Exit fullscreen (${title})` : `Fullscreen ${title.toLowerCase()}`;
         setIconButton(fullscreenButton, label, icon);
 
-        void setTauriWindowFullscreen(isFullscreen);
-
         if (isFullscreen) {
             escapeHandler = (event) => {
                 if (event.key === 'Escape') {
@@ -1117,7 +1135,6 @@ function createTextBlock(title, copyLabel, softWrap = true, onToggleWrap = null,
                 isFullscreen = false;
                 root.classList.remove('tt-eal-fullscreen');
                 document.body.classList.remove('tt-eal-has-fullscreen');
-                void setTauriWindowFullscreen(false);
             }
         }
     };

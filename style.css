@@ -34,24 +34,13 @@
 }
 
 .tt-eal-drawer-heading {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding-bottom: 10px;
+    padding-bottom: 8px;
     border-bottom: 1px solid var(--tt-eal-border);
 }
 
 .tt-eal-drawer-heading h3 {
     margin: 0;
     font-size: 1.05rem;
-}
-
-.tt-eal-kicker {
-    color: var(--tt-eal-accent);
-    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-    font-size: 0.64rem;
-    font-weight: 800;
-    letter-spacing: 0.18em;
 }
 
 .tt-eal-drawer-description {
@@ -91,10 +80,16 @@
     transform: translateX(2px);
 }
 
-.tt-eal-drawer-divider {
-    height: 1px;
-    margin: 4px 0;
-    background: color-mix(in srgb, var(--tt-eal-border) 60%, transparent);
+.tt-eal-drawer-section-label {
+    margin-top: 4px;
+    margin-bottom: 2px;
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--tt-eal-border) 60%, transparent);
+    color: var(--SmartThemeBodyColor, #ccc);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    opacity: 0.8;
 }
 
 :is(#dialogue_popup, .popup):has(.tt-eal-panel) {
@@ -869,7 +864,7 @@ body.tt-eal-has-fullscreen :is(#dialogue_popup, .popup) .popup_body {
         grid-column: 1 / -1;
     }
 
-    .tt-eal-drawer-divider,
+    .tt-eal-drawer-section-label,
     .tt-eal-fullscreen-toggle-btn {
         display: none !important;
     }

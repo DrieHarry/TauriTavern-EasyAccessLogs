@@ -5,7 +5,7 @@
   "js": "index.js",
   "css": "style.css",
   "author": "DrieHarry",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "homePage": "https://github.com/DrieHarry/TauriTavern-EasyAccessLogs",
   "auto_update": true,
   "hooks": {
