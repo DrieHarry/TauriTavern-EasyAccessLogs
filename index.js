@@ -13,7 +13,7 @@ import {
 const DRAWER_ID = 'tt-easy-access-logs-drawer';
 const DRAWER_PANEL_ID = 'tt-easy-access-logs-panel';
 const PANEL_TITLES = Object.freeze({
-    llm: 'LLM & Image API Logs',
+    llm: 'LLM API Logs',
     frontend: 'Frontend Logs',
     backend: 'Backend Logs',
 });
@@ -439,6 +439,9 @@ function createLogRow(entry, fallbackTarget) {
     return row;
 }
 
+const ZOOM_LEVELS = ['0.6rem', '0.67rem', '0.74rem', '0.84rem', '0.96rem', '1.1rem', '1.28rem', '1.5rem'];
+const DEFAULT_ZOOM_INDEX = 2;
+
 async function createLlmPanel(api) {
     let keep = positiveInteger(await api.getKeep()) ?? 50;
     let entries = trimTail(await api.index({ limit: keep }), keep);
@@ -450,7 +453,7 @@ async function createLlmPanel(api) {
 
     const root = createPanelShell(
         PANEL_TITLES.llm,
-        'Requests and responses recorded by TauriTavern, including image-generation metadata.',
+        null,
         'API TRACE',
     );
     const toolbar = element('div', 'tt-eal-toolbar');
@@ -458,35 +461,82 @@ async function createLlmPanel(api) {
     const nextButton = menuButton('Next', 'fa-chevron-right');
     const entrySelect = element('select', 'text_pole tt-eal-entry-select');
     const reloadButton = menuButton('Reload', 'fa-rotate');
-    const settings = element('div', 'tt-eal-settings-row');
-    const keepLabel = element('span', '', 'Keep entries');
-    const keepInput = element('input', 'text_pole tt-eal-keep-input');
-    const applyButton = menuButton('Apply', 'fa-check');
-    const note = element('small', '', 'Logs can contain private prompts and responses. Review copied text before sharing.');
-    const meta = element('div', 'tt-eal-meta');
-    const bodyGrid = element('div', 'tt-eal-body-grid');
-    const requestBlock = createTextBlock('Request', 'Copy request');
-    const responseBlock = createTextBlock('Response', 'Copy response');
-    const rawDetails = element('details', 'tt-eal-raw');
-    const rawSummary = element('summary', '', 'Raw JSON / SSE');
-    const rawBody = element('div', 'tt-eal-raw-body');
-    const rawGrid = element('div', 'tt-eal-body-grid');
-    const rawRequestBlock = createTextBlock('Raw request', 'Copy raw request', false);
-    const rawResponseBlock = createTextBlock('Raw response', 'Copy raw response', false);
 
-    entrySelect.setAttribute('aria-label', 'Log entry');
+    const metaCard = element('div', 'tt-eal-meta-card');
+    const metaInfo = element('div', 'tt-eal-meta-info');
+    const metaControls = element('div', 'tt-eal-meta-controls');
+    const keepLabel = element('span', 'tt-eal-keep-label', 'Keep Entries: ');
+    const keepInput = element('input', 'text_pole tt-eal-keep-input');
+    const applyButton = iconButton('Apply retention', 'fa-check');
+
     keepInput.type = 'number';
     keepInput.min = '1';
     keepInput.step = '1';
     keepInput.value = String(keep);
-    note.className = 'tt-eal-drawer-description';
-    toolbar.append(previousButton, nextButton, entrySelect, reloadButton);
-    settings.append(keepLabel, keepInput, applyButton, note);
+    keepInput.setAttribute('aria-label', 'Keep entries');
+    metaControls.append(keepLabel, keepInput, applyButton);
+    metaCard.append(metaControls, metaInfo);
+
+    const previewSection = element('section', 'tt-eal-section tt-eal-preview-section');
+    const previewBar = element('div', 'tt-eal-section-bar');
+    const previewTitle = element('span', 'tt-eal-section-title', 'Formatted Preview');
+    const previewTools = element('div', 'tt-eal-section-tools');
+    const previewZoomOut = iconButton('Zoom out (−)', 'fa-magnifying-glass-minus');
+    const previewZoomIn = iconButton('Zoom in (+)', 'fa-magnifying-glass-plus');
+    previewTools.append(previewZoomOut, previewZoomIn);
+    previewBar.append(previewTitle, previewTools);
+
+    const bodyGrid = element('div', 'tt-eal-body-grid');
+    const requestBlock = createTextBlock('Request', 'Copy request');
+    const responseBlock = createTextBlock('Response', 'Copy response');
     bodyGrid.append(requestBlock.root, responseBlock.root);
+    previewSection.append(previewBar, bodyGrid);
+
+    let rawWordWrap = false;
+
+    function setRawWordWrap(enabled) {
+        rawWordWrap = enabled;
+        rawWordWrapBtn.classList.toggle('active', rawWordWrap);
+        rawWordWrapBtn.setAttribute('aria-pressed', String(rawWordWrap));
+        rawWordWrapBtn.title = rawWordWrap ? 'Word wrap: On' : 'Toggle word wrap';
+        rawWordWrapBtn.setAttribute('aria-label', rawWordWrap ? 'Word wrap: On' : 'Toggle word wrap');
+
+        rawRequestBlock.setWrapState?.(rawWordWrap);
+        rawResponseBlock.setWrapState?.(rawWordWrap);
+
+        for (const block of [rawRequestBlock, rawResponseBlock]) {
+            block.area.wrap = rawWordWrap ? 'soft' : 'off';
+            block.area.style.whiteSpace = rawWordWrap ? 'pre-wrap' : 'pre';
+        }
+    }
+
+    const toggleRawWordWrap = () => setRawWordWrap(!rawWordWrap);
+
+    const rawSection = element('section', 'tt-eal-section tt-eal-raw-section');
+    const rawBar = element('div', 'tt-eal-section-bar');
+    const rawTitle = element('span', 'tt-eal-section-title', 'Raw JSON / SSE');
+    const rawTools = element('div', 'tt-eal-section-tools');
+    const rawWordWrapBtn = iconButton('Toggle word wrap', 'fa-align-left');
+    rawWordWrapBtn.setAttribute('aria-pressed', 'false');
+    const rawZoomOut = iconButton('Zoom out (−)', 'fa-magnifying-glass-minus');
+    const rawZoomIn = iconButton('Zoom in (+)', 'fa-magnifying-glass-plus');
+    rawTools.append(rawWordWrapBtn, rawZoomOut, rawZoomIn);
+    rawBar.append(rawTitle, rawTools);
+
+    const rawGrid = element('div', 'tt-eal-body-grid');
+    const rawRequestBlock = createTextBlock('Raw request', 'Copy raw request', false, toggleRawWordWrap);
+    const rawResponseBlock = createTextBlock('Raw response', 'Copy raw response', false, toggleRawWordWrap);
     rawGrid.append(rawRequestBlock.root, rawResponseBlock.root);
-    rawBody.append(rawGrid);
-    rawDetails.append(rawSummary, rawBody);
-    root.append(toolbar, settings, meta, bodyGrid, rawDetails);
+    rawSection.append(rawBar, rawGrid);
+
+    entrySelect.setAttribute('aria-label', 'Log entry');
+    toolbar.append(previousButton, nextButton, entrySelect, reloadButton);
+    root.append(toolbar, metaCard, previewSection, rawSection);
+
+    setupSectionZoom([requestBlock, responseBlock], previewZoomIn, previewZoomOut);
+    setupSectionZoom([rawRequestBlock, rawResponseBlock], rawZoomIn, rawZoomOut);
+
+    rawWordWrapBtn.addEventListener('click', toggleRawWordWrap);
 
     function renderIndex() {
         if (selectedId !== null && !entries.some(entry => entry.id === selectedId)) {
@@ -507,8 +557,8 @@ async function createLlmPanel(api) {
         nextButton.disabled = empty || currentIndex === entries.length - 1;
         reloadButton.disabled = empty;
         if (empty) {
-            meta.classList.remove('error');
-            meta.textContent = 'No LLM or image API entries yet.';
+            metaCard.classList.remove('error');
+            metaInfo.textContent = 'No LLM API entries yet.';
             requestBlock.area.value = '';
             responseBlock.area.value = '';
             rawRequestBlock.area.value = '';
@@ -516,16 +566,14 @@ async function createLlmPanel(api) {
         }
     }
 
+    async function loadEntry() {
+        await Promise.all([loadPreview(), loadRaw()]);
+    }
+
     async function select(id) {
         selectedId = id;
         renderIndex();
-        rawEpoch += 1;
-        rawRequestBlock.area.value = '';
-        rawResponseBlock.area.value = '';
-        await loadPreview();
-        if (rawDetails.open) {
-            await loadRaw();
-        }
+        await loadEntry();
     }
 
     async function loadPreview() {
@@ -537,21 +585,21 @@ async function createLlmPanel(api) {
         const epoch = ++previewEpoch;
         requestBlock.area.value = 'Loading…';
         responseBlock.area.value = 'Loading…';
-        meta.classList.remove('error');
-        meta.textContent = 'Loading entry…';
+        metaCard.classList.remove('error');
+        metaInfo.textContent = 'Loading entry…';
         try {
             const preview = await api.getPreview(id);
             if (disposed || epoch !== previewEpoch || selectedId !== id) {
                 return;
             }
-            meta.classList.toggle('error', !preview.ok || Boolean(preview.errorMessage));
-            meta.textContent = formatPreviewMeta(preview);
-            requestBlock.area.value = String(preview.requestReadable ?? '');
-            responseBlock.area.value = String(preview.responseReadable ?? '');
+            metaCard.classList.toggle('error', !preview.ok || Boolean(preview.errorMessage));
+            metaInfo.textContent = formatPreviewMeta(preview);
+            requestBlock.area.value = String(preview?.requestReadable ?? '');
+            responseBlock.area.value = String(preview?.responseReadable ?? '');
         } catch (error) {
             if (!disposed && epoch === previewEpoch && selectedId === id) {
-                meta.classList.add('error');
-                meta.textContent = errorMessage(error);
+                metaCard.classList.add('error');
+                metaInfo.textContent = errorMessage(error);
                 requestBlock.area.value = '';
                 responseBlock.area.value = '';
             }
@@ -560,7 +608,7 @@ async function createLlmPanel(api) {
 
     async function loadRaw() {
         const id = selectedId;
-        if (!id || !rawDetails.open) {
+        if (!id) {
             return;
         }
         const epoch = ++rawEpoch;
@@ -568,11 +616,11 @@ async function createLlmPanel(api) {
         rawResponseBlock.area.value = 'Loading…';
         try {
             const raw = await api.getRaw(id);
-            if (disposed || epoch !== rawEpoch || selectedId !== id || !rawDetails.open) {
+            if (disposed || epoch !== rawEpoch || selectedId !== id) {
                 return;
             }
-            rawRequestBlock.area.value = String(raw.requestRaw ?? '');
-            rawResponseBlock.area.value = String(raw.responseRaw ?? '');
+            rawRequestBlock.area.value = String(raw?.requestRaw ?? '');
+            rawResponseBlock.area.value = String(raw?.responseRaw ?? '');
         } catch (error) {
             if (!disposed && epoch === rawEpoch && selectedId === id) {
                 rawRequestBlock.area.value = errorMessage(error);
@@ -596,16 +644,7 @@ async function createLlmPanel(api) {
     previousButton.addEventListener('click', () => selectRelative(-1));
     nextButton.addEventListener('click', () => selectRelative(1));
     reloadButton.addEventListener('click', () => {
-        void loadPreview().then(() => rawDetails.open && loadRaw());
-    });
-    rawDetails.addEventListener('toggle', () => {
-        if (rawDetails.open) {
-            void loadRaw();
-        } else {
-            rawEpoch += 1;
-            rawRequestBlock.area.value = '';
-            rawResponseBlock.area.value = '';
-        }
+        void loadEntry();
     });
     applyButton.addEventListener('click', async () => {
         const nextKeep = positiveInteger(keepInput.value);
@@ -623,7 +662,7 @@ async function createLlmPanel(api) {
                 selectedId = entries.at(-1)?.id ?? null;
             }
             renderIndex();
-            await loadPreview();
+            await loadEntry();
         } catch (error) {
             reportError(error, 'Could not update log retention.');
         } finally {
@@ -631,13 +670,42 @@ async function createLlmPanel(api) {
         }
     });
 
-    requestBlock.copyButton.addEventListener('click', () => void copyText(requestBlock.area.value));
-    responseBlock.copyButton.addEventListener('click', () => void copyText(responseBlock.area.value));
-    rawRequestBlock.copyButton.addEventListener('click', () => void copyText(rawRequestBlock.area.value));
-    rawResponseBlock.copyButton.addEventListener('click', () => void copyText(rawResponseBlock.area.value));
+    function bindCopyButton(button, getAreaValue, label) {
+        let copyTimeout = null;
+        button.addEventListener('click', async () => {
+            try {
+                await copyText(getAreaValue());
+                if (copyTimeout) {
+                    clearTimeout(copyTimeout);
+                }
+                button.classList.add('copied');
+                setIconButton(button, 'Copied!', 'fa-check');
+                copyTimeout = setTimeout(() => {
+                    button.classList.remove('copied');
+                    setIconButton(button, label, 'fa-copy');
+                    copyTimeout = null;
+                }, 1200);
+            } catch (error) {
+                reportError(error, 'Could not copy to clipboard.');
+            }
+        });
+        return () => {
+            if (copyTimeout) {
+                clearTimeout(copyTimeout);
+                copyTimeout = null;
+            }
+        };
+    }
+
+    const copyCleanups = [
+        bindCopyButton(requestBlock.copyButton, () => requestBlock.area.value, 'Copy request'),
+        bindCopyButton(responseBlock.copyButton, () => responseBlock.area.value, 'Copy response'),
+        bindCopyButton(rawRequestBlock.copyButton, () => rawRequestBlock.area.value, 'Copy raw request'),
+        bindCopyButton(rawResponseBlock.copyButton, () => rawResponseBlock.area.value, 'Copy raw response'),
+    ];
 
     renderIndex();
-    await loadPreview();
+    await loadEntry();
 
     Promise.resolve(api.subscribeIndex(entry => {
         if (disposed || entries.some(existing => existing.id === entry?.id)) {
@@ -648,7 +716,7 @@ async function createLlmPanel(api) {
         if (followingLatest) {
             selectedId = entries.at(-1)?.id ?? null;
             renderIndex();
-            void loadPreview();
+            void loadEntry();
         } else {
             renderIndex();
         }
@@ -669,6 +737,13 @@ async function createLlmPanel(api) {
             disposed = true;
             previewEpoch += 1;
             rawEpoch += 1;
+            for (const cleanup of copyCleanups) {
+                cleanup();
+            }
+            requestBlock.cleanup();
+            responseBlock.cleanup();
+            rawRequestBlock.cleanup();
+            rawResponseBlock.cleanup();
             try {
                 unsubscribe?.();
             } catch (error) {
@@ -678,28 +753,153 @@ async function createLlmPanel(api) {
     };
 }
 
+function setupSectionZoom(blocks, zoomInBtn, zoomOutBtn) {
+    let zoomIndex = DEFAULT_ZOOM_INDEX;
+
+    function applyZoom(delta) {
+        zoomIndex = Math.max(0, Math.min(zoomIndex + delta, ZOOM_LEVELS.length - 1));
+        const fontSize = ZOOM_LEVELS[zoomIndex];
+        for (const block of blocks) {
+            block.area.style.fontSize = fontSize;
+        }
+    }
+
+    zoomInBtn.addEventListener('click', () => applyZoom(1));
+    zoomOutBtn.addEventListener('click', () => applyZoom(-1));
+}
+
 function createPanelShell(title, description, mark) {
     const root = element('div', 'tt-eal-panel');
     const header = element('header', 'tt-eal-panel-header');
     const titleBlock = element('div', 'tt-eal-panel-title');
-    titleBlock.append(element('h2', '', title), element('p', '', description));
+    titleBlock.append(element('h2', '', title));
+    if (description) {
+        titleBlock.append(element('p', '', description));
+    }
     header.append(titleBlock, element('span', 'tt-eal-panel-mark', mark));
     root.append(header);
     return root;
 }
 
-function createTextBlock(title, copyLabel, softWrap = true) {
+async function setTauriWindowFullscreen(enable) {
+    try {
+        const tauri = window.__TAURI__;
+        if (tauri?.window) {
+            const win = tauri.window.getCurrentWindow?.() || tauri.window.appWindow;
+            if (win && typeof win.setFullscreen === 'function') {
+                await win.setFullscreen(enable);
+            }
+        }
+    } catch (error) {
+        console.warn('[TauriTavern Easy Access Logs] Tauri window fullscreen toggle failed:', error);
+    }
+}
+
+function createTextBlock(title, copyLabel, softWrap = true, onToggleWrap = null) {
     const root = element('section', 'tt-eal-text-block');
     const header = element('header');
-    const copyButton = menuButton(copyLabel, 'fa-copy');
+    const titleElem = element('b', '', title);
+    const actions = element('div', 'tt-eal-block-actions');
+    let wrapButton = null;
+
+    if (typeof onToggleWrap === 'function') {
+        wrapButton = iconButton('Toggle word wrap', 'fa-align-left');
+        wrapButton.classList.add('tt-eal-fullscreen-only-tool');
+        wrapButton.addEventListener('click', () => {
+            onToggleWrap();
+        });
+        actions.append(wrapButton);
+    }
+
+    const fullscreenButton = iconButton(`Fullscreen ${title.toLowerCase()}`, 'fa-expand');
+    const copyButton = iconButton(copyLabel, 'fa-copy');
     const area = element('textarea', 'text_pole');
+
     area.readOnly = true;
-    area.rows = 12;
+    area.rows = 9;
     area.wrap = softWrap ? 'soft' : 'off';
     area.setAttribute('aria-label', title);
-    header.append(element('b', '', title), copyButton);
+
+    let isFullscreen = false;
+    let escapeHandler = null;
+
+    function setFullscreen(enabled) {
+        if (isFullscreen === enabled) {
+            return;
+        }
+        isFullscreen = enabled;
+        root.classList.toggle('tt-eal-fullscreen', isFullscreen);
+        document.body.classList.toggle('tt-eal-has-fullscreen', isFullscreen);
+        const icon = isFullscreen ? 'fa-compress' : 'fa-expand';
+        const label = isFullscreen ? `Exit fullscreen (${title})` : `Fullscreen ${title.toLowerCase()}`;
+        setIconButton(fullscreenButton, label, icon);
+
+        void setTauriWindowFullscreen(isFullscreen);
+
+        if (isFullscreen) {
+            escapeHandler = (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setFullscreen(false);
+                    fullscreenButton.focus();
+                }
+            };
+            document.addEventListener('keydown', escapeHandler, { capture: true });
+            area.focus();
+        } else {
+            if (escapeHandler) {
+                document.removeEventListener('keydown', escapeHandler, { capture: true });
+                escapeHandler = null;
+            }
+            fullscreenButton.focus();
+        }
+    }
+
+    fullscreenButton.addEventListener('click', () => {
+        setFullscreen(!isFullscreen);
+    });
+
+    actions.append(fullscreenButton, copyButton);
+    header.append(titleElem, actions);
     root.append(header, area);
-    return { root, area, copyButton };
+
+    return {
+        root,
+        area,
+        copyButton,
+        fullscreenButton,
+        wrapButton,
+        setFullscreen,
+        setWrapState(enabled) {
+            if (wrapButton) {
+                wrapButton.classList.toggle('active', enabled);
+                wrapButton.setAttribute('aria-pressed', String(enabled));
+                wrapButton.title = enabled ? 'Word wrap: On' : 'Toggle word wrap';
+                wrapButton.setAttribute('aria-label', enabled ? 'Word wrap: On' : 'Toggle word wrap');
+            }
+        },
+        cleanup() {
+            if (escapeHandler) {
+                document.removeEventListener('keydown', escapeHandler, { capture: true });
+                escapeHandler = null;
+            }
+            if (isFullscreen) {
+                isFullscreen = false;
+                root.classList.remove('tt-eal-fullscreen');
+                document.body.classList.remove('tt-eal-has-fullscreen');
+                void setTauriWindowFullscreen(false);
+            }
+        }
+    };
+}
+
+function setIconButton(button, label, icon) {
+    button.title = label;
+    button.setAttribute('aria-label', label);
+    const iconElement = element('i', `fa-solid ${icon}`);
+    iconElement.setAttribute('aria-hidden', 'true');
+    button.replaceChildren(iconElement);
 }
 
 function formatPreviewMeta(preview) {
@@ -738,6 +938,17 @@ function menuButton(label, icon) {
     const button = element('button', 'menu_button menu_button_icon');
     button.type = 'button';
     setButton(button, label, icon);
+    return button;
+}
+
+function iconButton(label, icon) {
+    const button = element('button', 'menu_button menu_button_icon tt-eal-icon-button');
+    button.type = 'button';
+    button.title = label;
+    button.setAttribute('aria-label', label);
+    const iconElement = element('i', `fa-solid ${icon}`);
+    iconElement.setAttribute('aria-hidden', 'true');
+    button.append(iconElement);
     return button;
 }
 

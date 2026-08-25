@@ -91,15 +91,58 @@
     transform: translateX(2px);
 }
 
+:is(#dialogue_popup, .popup):has(.tt-eal-panel) {
+    max-width: min(94vw, 1140px) !important;
+    width: min(94vw, 1140px);
+}
+
+:is(#dialogue_popup, .popup):has(.tt-eal-fullscreen),
+body.tt-eal-has-fullscreen :is(#dialogue_popup, .popup) {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    inset: 0 !important;
+    transform: none !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+    z-index: 2147483647 !important;
+}
+
+:is(#dialogue_popup, .popup):has(.tt-eal-fullscreen) #dialogue_popup_text,
+body.tt-eal-has-fullscreen :is(#dialogue_popup, .popup) #dialogue_popup_text,
+:is(#dialogue_popup, .popup):has(.tt-eal-fullscreen) .popup_body,
+body.tt-eal-has-fullscreen :is(#dialogue_popup, .popup) .popup_body {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+}
+
 .tt-eal-panel {
     --tt-eal-accent: var(--SmartThemeQuoteColor, #7fc8ff);
     --tt-eal-border: color-mix(in srgb, var(--SmartThemeBorderColor, #777) 68%, transparent);
     --tt-eal-surface: color-mix(in srgb, var(--SmartThemeBlurTintColor, #202228) 88%, transparent);
     display: flex;
     flex-direction: column;
-    width: min(100%, 1040px);
-    min-height: min(66dvh, 720px);
-    gap: 12px;
+    width: min(92vw, 1080px);
+    max-width: 100%;
+    min-height: min(78dvh, 840px);
+    box-sizing: border-box;
+    gap: 10px;
     color: var(--SmartThemeBodyColor, #eee);
     text-align: left;
 }
@@ -108,9 +151,9 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     overflow: hidden;
-    padding: 14px 16px;
+    padding: 10px 14px;
     border: 1px solid var(--tt-eal-border);
     border-radius: 10px;
     background:
@@ -122,8 +165,8 @@
 .tt-eal-panel-header::before {
     content: '';
     flex: 0 0 auto;
-    width: 8px;
-    height: 38px;
+    width: 6px;
+    height: 28px;
     border-radius: 999px;
     background: var(--tt-eal-accent);
     box-shadow: 0 0 18px color-mix(in srgb, var(--tt-eal-accent) 70%, transparent);
@@ -314,32 +357,102 @@
     margin: 0;
 }
 
-.tt-eal-settings-row {
-    padding: 9px 10px;
-    border-left: 3px solid var(--tt-eal-accent);
-    background: color-mix(in srgb, var(--tt-eal-accent) 7%, transparent);
-}
-
-.tt-eal-keep-input {
-    width: 96px;
-    min-width: 96px;
-    margin: 0;
-}
-
-.tt-eal-meta {
-    padding: 9px 11px;
+.tt-eal-meta-card {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 8px 12px;
     border: 1px solid var(--tt-eal-border);
     border-radius: 8px;
     background: var(--black10a, rgba(0, 0, 0, 0.1));
     font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
     font-size: 0.74rem;
+    line-height: 1.4;
+}
+
+.tt-eal-meta-card.error {
+    border-color: color-mix(in srgb, var(--fullred, #ff5d68) 55%, transparent);
+    color: var(--fullred, #ff5d68);
+}
+
+.tt-eal-meta-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    border: 1px solid var(--tt-eal-border);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--tt-eal-surface) 60%, transparent);
+    font-family: inherit;
+}
+
+.tt-eal-keep-label {
+    font-weight: 700;
+    font-size: 0.74rem;
+    white-space: nowrap;
+    color: var(--SmartThemeBodyColor, #eee);
+    opacity: 0.9;
+}
+
+.tt-eal-keep-input::-webkit-outer-spin-button,
+.tt-eal-keep-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.tt-eal-keep-input {
+    width: 58px;
+    min-width: 58px;
+    height: 26px;
+    margin: 0;
+    padding: 2px 6px;
+    box-sizing: border-box;
+    font: inherit;
+    font-size: 0.74rem;
+    font-weight: 600;
+    text-align: center;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.tt-eal-meta-info {
+    flex: 1 1 300px;
+    min-width: 0;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
 
-.tt-eal-meta.error {
-    border-color: color-mix(in srgb, var(--fullred, #ff5d68) 55%, transparent);
-    color: var(--fullred, #ff5d68);
+.tt-eal-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tt-eal-section-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 2px;
+}
+
+.tt-eal-section-title {
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tt-eal-accent);
+    opacity: 0.9;
+}
+
+.tt-eal-section-tools,
+.tt-eal-block-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .tt-eal-body-grid {
@@ -353,6 +466,10 @@
     min-width: 0;
     flex-direction: column;
     gap: 6px;
+    padding: 7px 8px;
+    border: 1px solid color-mix(in srgb, var(--tt-eal-border) 60%, transparent);
+    border-radius: 8px;
+    background: var(--black10a, rgba(0, 0, 0, 0.1));
 }
 
 .tt-eal-text-block header {
@@ -362,33 +479,123 @@
     gap: 8px;
 }
 
+.tt-eal-text-block header b {
+    font-size: 0.78rem;
+}
+
+.tt-eal-fullscreen-only-tool {
+    display: none;
+}
+
+.tt-eal-text-block.tt-eal-fullscreen .tt-eal-fullscreen-only-tool {
+    display: inline-flex;
+}
+
+.tt-eal-icon-button {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    min-height: 26px;
+    padding: 0;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--tt-eal-border);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--tt-eal-surface) 60%, transparent);
+    color: var(--SmartThemeBodyColor, #eee);
+    cursor: pointer;
+    flex: 0 0 26px;
+    transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.tt-eal-icon-button:hover {
+    background: color-mix(in srgb, var(--tt-eal-accent) 15%, transparent);
+    border-color: var(--tt-eal-accent);
+    color: var(--tt-eal-accent);
+}
+
+.tt-eal-icon-button.active {
+    border-color: var(--tt-eal-accent);
+    background: color-mix(in srgb, var(--tt-eal-accent) 22%, transparent);
+    color: var(--tt-eal-accent);
+}
+
+.tt-eal-icon-button.copied {
+    border-color: var(--green, #2ed573);
+    color: var(--green, #2ed573);
+    background: color-mix(in srgb, var(--green, #2ed573) 18%, transparent);
+}
+
+.tt-eal-icon-button i {
+    font-size: 0.75rem;
+    pointer-events: none;
+}
+
 .tt-eal-text-block textarea {
     width: 100%;
-    min-height: 230px;
+    min-height: 140px;
+    height: 175px;
     margin: 0;
+    box-sizing: border-box;
     resize: vertical;
     font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
     font-size: 0.74rem;
+    line-height: 1.4;
+    transition: font-size 100ms ease;
 }
 
-.tt-eal-raw {
-    padding: 9px;
-    border: 1px solid var(--tt-eal-border);
-    border-radius: 8px;
-    background: var(--black10a, rgba(0, 0, 0, 0.1));
-}
-
-.tt-eal-raw > summary {
-    cursor: pointer;
-    font-weight: 700;
-    user-select: none;
-}
-
-.tt-eal-raw-body {
+:is(.tt-eal-text-block:fullscreen, .tt-eal-text-block:-webkit-full-screen, .tt-eal-text-block.tt-eal-fullscreen) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    inset: 0;
+    z-index: 2147483647;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding-top: 10px;
+    background: var(--SmartThemeBlurTintColor, #181a1f);
+    color: var(--SmartThemeBodyColor, #eee);
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 16px 20px;
+    gap: 12px;
+    box-sizing: border-box;
+}
+
+:is(.tt-eal-text-block:fullscreen, .tt-eal-text-block:-webkit-full-screen, .tt-eal-text-block.tt-eal-fullscreen) header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--tt-eal-border);
+    flex: 0 0 auto;
+}
+
+:is(.tt-eal-text-block:fullscreen, .tt-eal-text-block:-webkit-full-screen, .tt-eal-text-block.tt-eal-fullscreen) header b {
+    font-size: 1.1rem;
+}
+
+:is(.tt-eal-text-block:fullscreen, .tt-eal-text-block:-webkit-full-screen, .tt-eal-text-block.tt-eal-fullscreen) textarea {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    resize: none;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+:is(.tt-eal-text-block:fullscreen, .tt-eal-text-block:-webkit-full-screen, .tt-eal-text-block.tt-eal-fullscreen) .tt-eal-fullscreen-only-tool {
+    display: inline-flex;
 }
 
 .tt-eal-panel button:focus-visible,
@@ -399,24 +606,41 @@
 }
 
 @media (max-width: 720px) {
+    :is(#dialogue_popup, .popup):has(.tt-eal-panel) {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+
     .tt-eal-panel {
+        width: 100%;
         min-height: 60dvh;
     }
 
     .tt-eal-panel-header {
-        padding: 10px 12px;
+        padding: 8px 10px;
     }
 
     .tt-eal-panel-mark {
         display: none;
     }
 
+    .tt-eal-meta-card {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .tt-eal-meta-controls {
+        width: 100%;
+        justify-content: space-between;
+        box-sizing: border-box;
+    }
+
     .tt-eal-body-grid {
         grid-template-columns: 1fr;
     }
 
-    .tt-eal-toolbar > .menu_button,
-    .tt-eal-settings-row > .menu_button {
+    .tt-eal-toolbar > .menu_button {
         flex: 1 1 auto;
     }
 
@@ -436,5 +660,10 @@
 
     .tt-eal-log-target {
         grid-column: 1 / -1;
+    }
+
+    :is(.tt-eal-text-block:fullscreen, .tt-eal-text-block:-webkit-full-screen, .tt-eal-text-block.tt-eal-fullscreen) {
+        padding: 10px 12px;
+        gap: 8px;
     }
 }
