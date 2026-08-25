@@ -1,4 +1,38 @@
 export const MAX_LIVE_ENTRIES = 800;
+export const SETTINGS_STORAGE_KEY = 'tt_eal_settings';
+
+export function loadExtensionSettings(storage = globalThis.localStorage) {
+    try {
+        const raw = storage?.getItem?.(SETTINGS_STORAGE_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            return {
+                rawWordWrap: Boolean(parsed?.rawWordWrap),
+                previewRoleColor: Boolean(parsed?.previewRoleColor),
+                rawRoleColor: Boolean(parsed?.rawRoleColor),
+            };
+        }
+    } catch (error) {
+        // ignore
+    }
+    return {
+        rawWordWrap: false,
+        previewRoleColor: false,
+        rawRoleColor: false,
+    };
+}
+
+export function saveExtensionSettings(patch, storage = globalThis.localStorage) {
+    try {
+        const current = loadExtensionSettings(storage);
+        const updated = { ...current, ...patch };
+        storage?.setItem?.(SETTINGS_STORAGE_KEY, JSON.stringify(updated));
+        return updated;
+    } catch (error) {
+        // ignore
+    }
+    return null;
+}
 
 export function normalizeLevel(value) {
     const level = String(value ?? 'OTHER').trim().toUpperCase();
@@ -53,4 +87,231 @@ export function describeIndexEntry(entry) {
     const status = entry?.ok ? '✓' : '✕';
     const source = entry?.model || entry?.source || 'Unknown';
     return `${status} · ${formatClock(entry?.timestampMs)} · ${source}`;
+}
+
+export function escapeHtml(str) {
+    return String(str ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+export function renderFormattedRoleHtml(text) {
+    if (!text) {
+        return '';
+    }
+    const roleRegex = /(?:^|\n\n|\r\n\r\n|\n)\[(system|assistant|user|developer|model|thought)\](?:\r?\n|$)/gi;
+    const matches = [...text.matchAll(roleRegex)];
+    if (matches.length === 0) {
+        return `<div class="tt-eal-role-segment tt-eal-role-neutral"><span class="tt-eal-role-body">${escapeHtml(text)}</span></div>`;
+    }
+
+    const parts = [];
+    let currentRole = null;
+    let currentTag = '';
+    let pos = 0;
+
+    for (const m of matches) {
+        const matchStart = m.index + (m[0].startsWith('\n') ? (m[0].startsWith('\r\n\r\n') ? 4 : m[0].startsWith('\n\n') ? 2 : 1) : 0);
+        const tagText = `[${m[1]}]`;
+        const role = m[1].toLowerCase();
+
+        if (matchStart > pos) {
+            const prevContent = text.slice(pos, matchStart);
+            if (currentRole) {
+                parts.push(`<div class="tt-eal-role-segment tt-eal-role-${currentRole}"><span class="tt-eal-role-tag">${escapeHtml(currentTag)}</span>\n<span class="tt-eal-role-body">${escapeHtml(prevContent.trimEnd())}</span></div>`);
+            } else if (prevContent.trim()) {
+                parts.push(`<div class="tt-eal-role-segment tt-eal-role-neutral"><span class="tt-eal-role-body">${escapeHtml(prevContent.trimEnd())}</span></div>`);
+            }
+        }
+
+        currentRole = role;
+        currentTag = tagText;
+        pos = m.index + m[0].length;
+    }
+
+    if (pos < text.length) {
+        const tailContent = text.slice(pos);
+        if (currentRole) {
+            parts.push(`<div class="tt-eal-role-segment tt-eal-role-${currentRole}"><span class="tt-eal-role-tag">${escapeHtml(currentTag)}</span>\n<span class="tt-eal-role-body">${escapeHtml(tailContent.trimEnd())}</span></div>`);
+        } else {
+            parts.push(`<div class="tt-eal-role-segment tt-eal-role-neutral"><span class="tt-eal-role-body">${escapeHtml(tailContent.trimEnd())}</span></div>`);
+        }
+    } else if (currentRole) {
+        parts.push(`<div class="tt-eal-role-segment tt-eal-role-${currentRole}"><span class="tt-eal-role-tag">${escapeHtml(currentTag)}</span></div>`);
+    }
+
+    return parts.join('\n');
+}
+
+export function renderRawJsonRoleHtml(text) {
+    if (!text) {
+        return '';
+    }
+
+    const tokenRegex = /("(?:[^"\\]|\\.)*")|(-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|(\b(?:true|false|null)\b)|([{}[\]:,])|([^\s"{}[\]:,]+)|(\s+)/g;
+    const tokens = [];
+    let match;
+
+    while ((match = tokenRegex.exec(text)) !== null) {
+        let type = 'other';
+        if (match[1] !== undefined) {
+            type = 'string';
+        } else if (match[2] !== undefined) {
+            type = 'number';
+        } else if (match[3] !== undefined) {
+            type = 'boolean_or_null';
+        } else if (match[4] !== undefined) {
+            type = 'punct';
+        } else if (match[6] !== undefined) {
+            type = 'ws';
+        }
+        tokens.push({
+            type,
+            text: match[0],
+            index: match.index,
+            end: match.index + match[0].length,
+        });
+    }
+
+    if (tokens.length === 0) {
+        return escapeHtml(text);
+    }
+
+    const roleBlocks = [];
+    const stack = [];
+    let prevNonWsToken = null;
+
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        if (token.type === 'ws') {
+            continue;
+        }
+
+        if (token.text === '{') {
+            stack.push({
+                startIndex: token.index,
+                role: null,
+                roleTagToken: null,
+            });
+        } else if (token.text === '}') {
+            const currentObj = stack.pop();
+            if (currentObj && currentObj.role) {
+                roleBlocks.push({
+                    start: currentObj.startIndex,
+                    end: token.end,
+                    role: currentObj.role,
+                    roleTagToken: currentObj.roleTagToken,
+                });
+            }
+        } else if (token.type === 'string' && stack.length > 0) {
+            const currentObj = stack[stack.length - 1];
+            if (prevNonWsToken && prevNonWsToken.text === ':') {
+                let keyToken = null;
+                for (let j = i - 1; j >= 0; j--) {
+                    if (tokens[j].type === 'ws') continue;
+                    if (tokens[j].text === ':') continue;
+                    keyToken = tokens[j];
+                    break;
+                }
+                if (keyToken && keyToken.type === 'string') {
+                    const rawKey = keyToken.text.slice(1, -1);
+                    if (rawKey === 'role') {
+                        const rawVal = token.text.slice(1, -1).toLowerCase();
+                        if (['system', 'user', 'assistant', 'developer', 'model', 'thought'].includes(rawVal)) {
+                            currentObj.role = rawVal;
+                            currentObj.roleTagToken = token;
+                        }
+                    }
+                }
+            }
+        }
+
+        prevNonWsToken = token;
+    }
+
+    function findRoleBlock(index) {
+        for (let b = roleBlocks.length - 1; b >= 0; b--) {
+            if (index >= roleBlocks[b].start && index < roleBlocks[b].end) {
+                return roleBlocks[b];
+            }
+        }
+        return null;
+    }
+
+    let html = '';
+    const activeBlocks = new Set();
+
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+
+        for (const rb of roleBlocks) {
+            if (rb.start === token.index && !activeBlocks.has(rb)) {
+                activeBlocks.add(rb);
+                html += `<div class="tt-eal-json-role-block tt-eal-json-role-${rb.role}">`;
+            }
+        }
+
+        const currentBlock = findRoleBlock(token.index);
+
+        if (token.type === 'ws') {
+            html += escapeHtml(token.text);
+        } else if (token.type === 'punct') {
+            html += `<span class="tt-eal-json-punct">${escapeHtml(token.text)}</span>`;
+        } else if (token.type === 'number') {
+            html += `<span class="tt-eal-json-num">${escapeHtml(token.text)}</span>`;
+        } else if (token.type === 'boolean_or_null') {
+            html += `<span class="tt-eal-json-bool">${escapeHtml(token.text)}</span>`;
+        } else if (token.type === 'string') {
+            let isKey = false;
+            for (let j = i + 1; j < tokens.length; j++) {
+                if (tokens[j].type === 'ws') continue;
+                if (tokens[j].text === ':') isKey = true;
+                break;
+            }
+
+            if (isKey) {
+                html += `<span class="tt-eal-json-key">${escapeHtml(token.text)}</span>`;
+            } else if (currentBlock && currentBlock.roleTagToken === token) {
+                html += `<span class="tt-eal-json-str tt-eal-json-role-tag">${escapeHtml(token.text)}</span>`;
+            } else if (currentBlock) {
+                let isContent = false;
+                for (let j = i - 1; j >= 0; j--) {
+                    if (tokens[j].type === 'ws') continue;
+                    if (tokens[j].text === ':') continue;
+                    if (tokens[j].type === 'string') {
+                        const rawKey = tokens[j].text.slice(1, -1);
+                        if (rawKey === 'content' || rawKey === 'text') {
+                            isContent = true;
+                        }
+                    }
+                    break;
+                }
+                if (isContent) {
+                    html += `<span class="tt-eal-json-str tt-eal-json-role-content">${escapeHtml(token.text)}</span>`;
+                } else {
+                    html += `<span class="tt-eal-json-str">${escapeHtml(token.text)}</span>`;
+                }
+            } else {
+                html += `<span class="tt-eal-json-str">${escapeHtml(token.text)}</span>`;
+            }
+        } else {
+            html += escapeHtml(token.text);
+        }
+
+        for (const rb of roleBlocks) {
+            if (rb.end === token.end && activeBlocks.has(rb)) {
+                activeBlocks.delete(rb);
+                html += '</div>';
+            }
+        }
+    }
+
+    for (let count = 0; count < activeBlocks.size; count++) {
+        html += '</div>';
+    }
+
+    return html;
 }

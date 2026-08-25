@@ -2,6 +2,13 @@
 
 Adds a **Developer & API Logs** button to the TauriTavern top bar.
 
+## What's New in v2.0.0
+
+- **Immersive Fullscreen App Toggle**: Added a desktop action row in the top bar drawer to toggle the entire TauriTavern application into borderless immersive fullscreen without affecting custom wallpapers.
+- **Role-Based Message Colorizing**: Dedicated colorize buttons in both Formatted Preview Request and Raw JSON Request to visually distinguish `[system]`, `[user]`, and `[assistant]` roles with high contrast, natural colors while preserving 100% exact raw text and copy fidelity.
+- **Fullscreen Section Zoom Controls**: Zoom In (`+`) and Zoom Out (`−`) controls are now accessible directly inside fullscreen mode across all viewers.
+- **Preference & Setting Persistence**: Automatically remembers your Raw Word Wrap and Role Color toggle selections across sessions via `localStorage`, while keeping default zoom behavior.
+
 ## What's New in v1.0.1
 
 - **Expanded Desktop Viewer**: Larger, balanced desktop proportions with taller textareas for comfortable reading.
@@ -14,7 +21,9 @@ Adds a **Developer & API Logs** button to the TauriTavern top bar.
 
 ## Features
 
-- LLM and image API request logs
+- Immersive Fullscreen desktop app toggle
+- Role-based message colorizing for Formatted Preview and Raw JSON / SSE requests
+- LLM and image API request logs with synchronized section zoom and word wrap
 - Frontend logs
 - Backend logs
 - Live updates, filters, search, and copy buttons

@@ -1,12 +1,17 @@
 import {
     MAX_LIVE_ENTRIES,
     describeIndexEntry,
+    escapeHtml,
     formatClock,
     formatTimestamp,
     levelClass,
+    loadExtensionSettings,
     mergeById,
     normalizeLevel,
     positiveInteger,
+    renderFormattedRoleHtml,
+    renderRawJsonRoleHtml,
+    saveExtensionSettings,
     trimTail,
 } from './log-utils.js';
 
@@ -146,6 +151,26 @@ function bindDrawer(drawer) {
         }, { signal });
     }
 
+    const fullscreenActionBtn = drawer.querySelector('[data-tt-eal-action="fullscreen"]');
+    if (fullscreenActionBtn) {
+        fullscreenActionBtn.addEventListener('click', async event => {
+            event.preventDefault();
+            event.stopPropagation();
+            setDrawerOpen(drawer, false);
+            try {
+                await toggleAppFullscreen();
+            } catch (error) {
+                reportError(error, 'Could not toggle fullscreen.');
+            }
+            await updateFullscreenButtonState(drawer);
+        }, { signal });
+    }
+
+    void updateFullscreenButtonState(drawer);
+    document.addEventListener('fullscreenchange', () => void updateFullscreenButtonState(drawer), { signal });
+    document.addEventListener('webkitfullscreenchange', () => void updateFullscreenButtonState(drawer), { signal });
+    window.addEventListener('resize', () => void updateFullscreenButtonState(drawer), { signal });
+
     document.addEventListener('pointerdown', event => {
         if (isDrawerOpen(drawer) && !drawer.contains(event.target)) {
             setDrawerOpen(drawer, false);
@@ -162,6 +187,116 @@ function bindDrawer(drawer) {
     drawerListeners = controller;
 }
 
+function getTauriWindow() {
+    try {
+        const tauri = window.__TAURI__;
+        if (tauri?.window) {
+            return tauri.window.getCurrentWindow?.() || tauri.window.appWindow || null;
+        }
+    } catch (error) {
+        // ignore
+    }
+    return null;
+}
+
+async function setTauriWindowFullscreen(enable) {
+    try {
+        const win = getTauriWindow();
+        if (win && typeof win.setFullscreen === 'function') {
+            await win.setFullscreen(enable);
+            return true;
+        }
+        if (typeof window.__TAURI_INVOKE__ === 'function') {
+            await window.__TAURI_INVOKE__('tauri', {
+                __tauriModule: 'Window',
+                message: { cmd: 'setFullscreen', value: enable }
+            });
+            return true;
+        }
+    } catch (error) {
+        console.warn('[TauriTavern Easy Access Logs] Tauri window setFullscreen failed:', error);
+    }
+    return false;
+}
+
+function isAppFullscreen() {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+        return true;
+    }
+    if (typeof window.innerHeight === 'number' && typeof screen.height === 'number') {
+        if (Math.abs(window.innerHeight - screen.height) < 12 && Math.abs(window.innerWidth - screen.width) < 12) {
+            return true;
+        }
+    }
+    return false;
+}
+
+async function checkTauriFullscreenState() {
+    try {
+        const win = getTauriWindow();
+        if (win && typeof win.isFullscreen === 'function') {
+            return await win.isFullscreen();
+        }
+    } catch (error) {
+        // ignore
+    }
+    return isAppFullscreen();
+}
+
+async function toggleAppFullscreen() {
+    const isCurrentlyFull = isAppFullscreen();
+    const targetState = !isCurrentlyFull;
+
+    try {
+        if (targetState) {
+            const req = document.documentElement.requestFullscreen?.()
+                || document.documentElement.webkitRequestFullscreen?.()
+                || document.body.requestFullscreen?.();
+            if (req && typeof req.then === 'function') {
+                await req;
+            }
+        } else if (document.fullscreenElement || document.webkitFullscreenElement) {
+            const exit = document.exitFullscreen?.() || document.webkitExitFullscreen?.();
+            if (exit && typeof exit.then === 'function') {
+                await exit;
+            }
+        }
+    } catch (error) {
+        console.warn('[TauriTavern Easy Access Logs] Fullscreen toggle attempt:', error);
+        reportError(error, 'Could not toggle fullscreen.');
+    }
+
+    try {
+        await setTauriWindowFullscreen(targetState);
+    } catch (error) {
+        // ignore
+    }
+
+    try {
+        window.dispatchEvent(new Event('resize'));
+    } catch (error) {
+        // ignore
+    }
+}
+
+async function updateFullscreenButtonState(drawer) {
+    const fullscreenBtn = drawer?.querySelector?.('[data-tt-eal-action="fullscreen"]');
+    if (!fullscreenBtn) {
+        return;
+    }
+    const isFull = await checkTauriFullscreenState();
+    const icon = fullscreenBtn.querySelector('.tt-eal-fullscreen-action-icon');
+    const label = fullscreenBtn.querySelector('.tt-eal-fullscreen-action-text');
+    if (icon) {
+        icon.className = `fa-solid ${isFull ? 'fa-compress' : 'fa-expand'} fa-fw tt-eal-fullscreen-action-icon`;
+    }
+    if (label) {
+        label.textContent = isFull ? 'Exit Fullscreen' : 'Immersive Fullscreen';
+    }
+    fullscreenBtn.title = isFull ? 'Exit Fullscreen' : 'Immersive Fullscreen';
+    fullscreenBtn.setAttribute('aria-label', isFull ? 'Exit Fullscreen' : 'Immersive Fullscreen');
+}
+
 function isDrawerOpen(drawer) {
     return drawer.querySelector(`#${DRAWER_PANEL_ID}`)?.classList.contains('openDrawer') ?? false;
 }
@@ -172,6 +307,7 @@ function setDrawerOpen(drawer, open) {
     const panel = requireElement(drawer, `#${DRAWER_PANEL_ID}`);
 
     if (open) {
+        void updateFullscreenButtonState(drawer);
         for (const otherPanel of document.querySelectorAll('.openDrawer:not(.pinnedOpen)')) {
             if (otherPanel === panel) {
                 continue;
@@ -486,13 +622,21 @@ async function createLlmPanel(api) {
     previewTools.append(previewZoomOut, previewZoomIn);
     previewBar.append(previewTitle, previewTools);
 
+    const settings = loadExtensionSettings();
+
+    let previewZoomer = null;
+    const onPreviewZoom = delta => previewZoomer?.(delta);
+
+    const onTogglePreviewColorizer = enabled => saveExtensionSettings({ previewRoleColor: enabled });
+    const onToggleRawColorizer = enabled => saveExtensionSettings({ rawRoleColor: enabled });
+
     const bodyGrid = element('div', 'tt-eal-body-grid');
-    const requestBlock = createTextBlock('Request', 'Copy request');
-    const responseBlock = createTextBlock('Response', 'Copy response');
+    const requestBlock = createTextBlock('Request', 'Copy request', true, null, onPreviewZoom, renderFormattedRoleHtml, settings.previewRoleColor, onTogglePreviewColorizer);
+    const responseBlock = createTextBlock('Response', 'Copy response', true, null, onPreviewZoom);
     bodyGrid.append(requestBlock.root, responseBlock.root);
     previewSection.append(previewBar, bodyGrid);
 
-    let rawWordWrap = false;
+    let rawWordWrap = settings.rawWordWrap;
 
     function setRawWordWrap(enabled) {
         rawWordWrap = enabled;
@@ -510,22 +654,30 @@ async function createLlmPanel(api) {
         }
     }
 
-    const toggleRawWordWrap = () => setRawWordWrap(!rawWordWrap);
+    const toggleRawWordWrap = () => {
+        const next = !rawWordWrap;
+        setRawWordWrap(next);
+        saveExtensionSettings({ rawWordWrap: next });
+    };
+
+    let rawZoomer = null;
+    const onRawZoom = delta => rawZoomer?.(delta);
 
     const rawSection = element('section', 'tt-eal-section tt-eal-raw-section');
     const rawBar = element('div', 'tt-eal-section-bar');
     const rawTitle = element('span', 'tt-eal-section-title', 'Raw JSON / SSE');
     const rawTools = element('div', 'tt-eal-section-tools');
     const rawWordWrapBtn = iconButton('Toggle word wrap', 'fa-align-left');
-    rawWordWrapBtn.setAttribute('aria-pressed', 'false');
+    rawWordWrapBtn.setAttribute('aria-pressed', String(rawWordWrap));
+    rawWordWrapBtn.classList.toggle('active', rawWordWrap);
     const rawZoomOut = iconButton('Zoom out (−)', 'fa-magnifying-glass-minus');
     const rawZoomIn = iconButton('Zoom in (+)', 'fa-magnifying-glass-plus');
     rawTools.append(rawWordWrapBtn, rawZoomOut, rawZoomIn);
     rawBar.append(rawTitle, rawTools);
 
     const rawGrid = element('div', 'tt-eal-body-grid');
-    const rawRequestBlock = createTextBlock('Raw request', 'Copy raw request', false, toggleRawWordWrap);
-    const rawResponseBlock = createTextBlock('Raw response', 'Copy raw response', false, toggleRawWordWrap);
+    const rawRequestBlock = createTextBlock('Raw request', 'Copy raw request', false, toggleRawWordWrap, onRawZoom, renderRawJsonRoleHtml, settings.rawRoleColor, onToggleRawColorizer);
+    const rawResponseBlock = createTextBlock('Raw response', 'Copy raw response', false, toggleRawWordWrap, onRawZoom);
     rawGrid.append(rawRequestBlock.root, rawResponseBlock.root);
     rawSection.append(rawBar, rawGrid);
 
@@ -533,9 +685,10 @@ async function createLlmPanel(api) {
     toolbar.append(previousButton, nextButton, entrySelect, reloadButton);
     root.append(toolbar, metaCard, previewSection, rawSection);
 
-    setupSectionZoom([requestBlock, responseBlock], previewZoomIn, previewZoomOut);
-    setupSectionZoom([rawRequestBlock, rawResponseBlock], rawZoomIn, rawZoomOut);
+    previewZoomer = setupSectionZoom([requestBlock, responseBlock], previewZoomIn, previewZoomOut);
+    rawZoomer = setupSectionZoom([rawRequestBlock, rawResponseBlock], rawZoomIn, rawZoomOut);
 
+    setRawWordWrap(rawWordWrap);
     rawWordWrapBtn.addEventListener('click', toggleRawWordWrap);
 
     function renderIndex() {
@@ -559,10 +712,10 @@ async function createLlmPanel(api) {
         if (empty) {
             metaCard.classList.remove('error');
             metaInfo.textContent = 'No LLM API entries yet.';
-            requestBlock.area.value = '';
-            responseBlock.area.value = '';
-            rawRequestBlock.area.value = '';
-            rawResponseBlock.area.value = '';
+            requestBlock.setValue('');
+            responseBlock.setValue('');
+            rawRequestBlock.setValue('');
+            rawResponseBlock.setValue('');
         }
     }
 
@@ -583,8 +736,8 @@ async function createLlmPanel(api) {
             return;
         }
         const epoch = ++previewEpoch;
-        requestBlock.area.value = 'Loading…';
-        responseBlock.area.value = 'Loading…';
+        requestBlock.setValue('Loading…');
+        responseBlock.setValue('Loading…');
         metaCard.classList.remove('error');
         metaInfo.textContent = 'Loading entry…';
         try {
@@ -594,14 +747,14 @@ async function createLlmPanel(api) {
             }
             metaCard.classList.toggle('error', !preview.ok || Boolean(preview.errorMessage));
             metaInfo.textContent = formatPreviewMeta(preview);
-            requestBlock.area.value = String(preview?.requestReadable ?? '');
-            responseBlock.area.value = String(preview?.responseReadable ?? '');
+            requestBlock.setValue(String(preview?.requestReadable ?? ''));
+            responseBlock.setValue(String(preview?.responseReadable ?? ''));
         } catch (error) {
             if (!disposed && epoch === previewEpoch && selectedId === id) {
                 metaCard.classList.add('error');
                 metaInfo.textContent = errorMessage(error);
-                requestBlock.area.value = '';
-                responseBlock.area.value = '';
+                requestBlock.setValue('');
+                responseBlock.setValue('');
             }
         }
     }
@@ -612,19 +765,19 @@ async function createLlmPanel(api) {
             return;
         }
         const epoch = ++rawEpoch;
-        rawRequestBlock.area.value = 'Loading…';
-        rawResponseBlock.area.value = 'Loading…';
+        rawRequestBlock.setValue('Loading…');
+        rawResponseBlock.setValue('Loading…');
         try {
             const raw = await api.getRaw(id);
             if (disposed || epoch !== rawEpoch || selectedId !== id) {
                 return;
             }
-            rawRequestBlock.area.value = String(raw?.requestRaw ?? '');
-            rawResponseBlock.area.value = String(raw?.responseRaw ?? '');
+            rawRequestBlock.setValue(String(raw?.requestRaw ?? ''));
+            rawResponseBlock.setValue(String(raw?.responseRaw ?? ''));
         } catch (error) {
             if (!disposed && epoch === rawEpoch && selectedId === id) {
-                rawRequestBlock.area.value = errorMessage(error);
-                rawResponseBlock.area.value = '';
+                rawRequestBlock.setValue(errorMessage(error));
+                rawResponseBlock.setValue('');
             }
         }
     }
@@ -761,11 +914,20 @@ function setupSectionZoom(blocks, zoomInBtn, zoomOutBtn) {
         const fontSize = ZOOM_LEVELS[zoomIndex];
         for (const block of blocks) {
             block.area.style.fontSize = fontSize;
+            if (block.codeView) {
+                block.codeView.style.fontSize = fontSize;
+            }
         }
     }
 
-    zoomInBtn.addEventListener('click', () => applyZoom(1));
-    zoomOutBtn.addEventListener('click', () => applyZoom(-1));
+    if (zoomInBtn) {
+        zoomInBtn.addEventListener('click', () => applyZoom(1));
+    }
+    if (zoomOutBtn) {
+        zoomOutBtn.addEventListener('click', () => applyZoom(-1));
+    }
+
+    return applyZoom;
 }
 
 function createPanelShell(title, description, mark) {
@@ -781,26 +943,68 @@ function createPanelShell(title, description, mark) {
     return root;
 }
 
-async function setTauriWindowFullscreen(enable) {
-    try {
-        const tauri = window.__TAURI__;
-        if (tauri?.window) {
-            const win = tauri.window.getCurrentWindow?.() || tauri.window.appWindow;
-            if (win && typeof win.setFullscreen === 'function') {
-                await win.setFullscreen(enable);
-            }
-        }
-    } catch (error) {
-        console.warn('[TauriTavern Easy Access Logs] Tauri window fullscreen toggle failed:', error);
-    }
-}
-
-function createTextBlock(title, copyLabel, softWrap = true, onToggleWrap = null) {
+function createTextBlock(title, copyLabel, softWrap = true, onToggleWrap = null, onZoom = null, colorizer = null, initialColorized = false, onToggleColorizer = null) {
     const root = element('section', 'tt-eal-text-block');
     const header = element('header');
     const titleElem = element('b', '', title);
     const actions = element('div', 'tt-eal-block-actions');
+    let colorizeBtn = null;
+    let zoomOutBtn = null;
+    let zoomInBtn = null;
     let wrapButton = null;
+    let isColorized = Boolean(initialColorized);
+
+    const area = element('textarea', 'text_pole');
+    let codeView = null;
+
+    if (typeof colorizer === 'function') {
+        codeView = element('div', 'text_pole tt-eal-code-view');
+        codeView.setAttribute('tabindex', '0');
+        codeView.setAttribute('role', 'region');
+        codeView.setAttribute('aria-label', `${title} (colorized view)`);
+        codeView.style.display = isColorized ? 'block' : 'none';
+        area.style.display = isColorized ? 'none' : '';
+
+        colorizeBtn = iconButton('Toggle role colors', 'fa-palette');
+        colorizeBtn.classList.toggle('active', isColorized);
+        colorizeBtn.setAttribute('aria-pressed', String(isColorized));
+        colorizeBtn.title = isColorized ? 'Role colors: On' : 'Toggle role colors';
+        colorizeBtn.setAttribute('aria-label', isColorized ? 'Role colors: On' : 'Toggle role colors');
+
+        colorizeBtn.addEventListener('click', () => {
+            isColorized = !isColorized;
+            colorizeBtn.classList.toggle('active', isColorized);
+            colorizeBtn.setAttribute('aria-pressed', String(isColorized));
+            colorizeBtn.title = isColorized ? 'Role colors: On' : 'Toggle role colors';
+            colorizeBtn.setAttribute('aria-label', isColorized ? 'Role colors: On' : 'Toggle role colors');
+            if (isColorized) {
+                codeView.innerHTML = colorizer(area.value);
+                area.style.display = 'none';
+                codeView.style.display = 'block';
+            } else {
+                codeView.style.display = 'none';
+                area.style.display = '';
+            }
+            onToggleColorizer?.(isColorized);
+        });
+        actions.append(colorizeBtn);
+    }
+
+    if (typeof onZoom === 'function') {
+        zoomOutBtn = iconButton(`Zoom out (${title.toLowerCase()})`, 'fa-magnifying-glass-minus');
+        zoomOutBtn.classList.add('tt-eal-fullscreen-only-tool');
+        zoomOutBtn.addEventListener('click', () => {
+            onZoom(-1);
+        });
+
+        zoomInBtn = iconButton(`Zoom in (${title.toLowerCase()})`, 'fa-magnifying-glass-plus');
+        zoomInBtn.classList.add('tt-eal-fullscreen-only-tool');
+        zoomInBtn.addEventListener('click', () => {
+            onZoom(1);
+        });
+
+        actions.append(zoomOutBtn, zoomInBtn);
+    }
 
     if (typeof onToggleWrap === 'function') {
         wrapButton = iconButton('Toggle word wrap', 'fa-align-left');
@@ -813,7 +1017,6 @@ function createTextBlock(title, copyLabel, softWrap = true, onToggleWrap = null)
 
     const fullscreenButton = iconButton(`Fullscreen ${title.toLowerCase()}`, 'fa-expand');
     const copyButton = iconButton(copyLabel, 'fa-copy');
-    const area = element('textarea', 'text_pole');
 
     area.readOnly = true;
     area.rows = 9;
@@ -846,7 +1049,11 @@ function createTextBlock(title, copyLabel, softWrap = true, onToggleWrap = null)
                 }
             };
             document.addEventListener('keydown', escapeHandler, { capture: true });
-            area.focus();
+            if (isColorized && codeView) {
+                codeView.focus();
+            } else {
+                area.focus();
+            }
         } else {
             if (escapeHandler) {
                 document.removeEventListener('keydown', escapeHandler, { capture: true });
@@ -862,16 +1069,38 @@ function createTextBlock(title, copyLabel, softWrap = true, onToggleWrap = null)
 
     actions.append(fullscreenButton, copyButton);
     header.append(titleElem, actions);
-    root.append(header, area);
+    if (codeView) {
+        root.append(header, area, codeView);
+    } else {
+        root.append(header, area);
+    }
+
+    function setValue(val) {
+        const text = String(val ?? '');
+        area.value = text;
+        if (codeView && isColorized && typeof colorizer === 'function') {
+            codeView.innerHTML = colorizer(text);
+        }
+    }
 
     return {
         root,
         area,
+        codeView,
+        setValue,
         copyButton,
         fullscreenButton,
         wrapButton,
+        zoomOutButton: zoomOutBtn,
+        zoomInButton: zoomInBtn,
+        colorizeButton: colorizeBtn,
         setFullscreen,
         setWrapState(enabled) {
+            area.wrap = enabled ? 'soft' : 'off';
+            area.style.whiteSpace = enabled ? 'pre-wrap' : 'pre';
+            if (codeView) {
+                codeView.style.whiteSpace = enabled ? 'pre-wrap' : 'pre';
+            }
             if (wrapButton) {
                 wrapButton.classList.toggle('active', enabled);
                 wrapButton.setAttribute('aria-pressed', String(enabled));

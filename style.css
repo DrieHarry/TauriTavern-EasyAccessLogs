@@ -91,6 +91,12 @@
     transform: translateX(2px);
 }
 
+.tt-eal-drawer-divider {
+    height: 1px;
+    margin: 4px 0;
+    background: color-mix(in srgb, var(--tt-eal-border) 60%, transparent);
+}
+
 :is(#dialogue_popup, .popup):has(.tt-eal-panel) {
     max-width: min(94vw, 1140px) !important;
     width: min(94vw, 1140px);
@@ -483,12 +489,14 @@ body.tt-eal-has-fullscreen :is(#dialogue_popup, .popup) .popup_body {
     font-size: 0.78rem;
 }
 
-.tt-eal-fullscreen-only-tool {
-    display: none;
+.tt-eal-block-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.tt-eal-text-block.tt-eal-fullscreen .tt-eal-fullscreen-only-tool {
-    display: inline-flex;
+.tt-eal-fullscreen-only-tool {
+    display: none !important;
 }
 
 .tt-eal-icon-button {
@@ -546,6 +554,28 @@ body.tt-eal-has-fullscreen :is(#dialogue_popup, .popup) .popup_body {
     transition: font-size 100ms ease;
 }
 
+.tt-eal-code-view {
+    width: 100%;
+    min-height: 140px;
+    height: 175px;
+    margin: 0;
+    padding: 8px 10px;
+    box-sizing: border-box;
+    overflow: auto;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 0.74rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--black10a, rgba(0, 0, 0, 0.15));
+    border: 1px solid color-mix(in srgb, var(--tt-eal-border) 40%, transparent);
+    border-radius: 6px;
+    color: var(--SmartThemeBodyColor, #eee);
+    text-align: left;
+    user-select: text;
+    transition: font-size 100ms ease;
+}
+
 :is(.tt-eal-text-block:fullscreen, .tt-eal-text-block:-webkit-full-screen, .tt-eal-text-block.tt-eal-fullscreen) {
     position: fixed;
     top: 0;
@@ -583,7 +613,8 @@ body.tt-eal-has-fullscreen :is(#dialogue_popup, .popup) .popup_body {
     font-size: 1.1rem;
 }
 
-:is(.tt-eal-text-block:fullscreen, .tt-eal-text-block:-webkit-full-screen, .tt-eal-text-block.tt-eal-fullscreen) textarea {
+:is(.tt-eal-text-block:fullscreen, .tt-eal-text-block:-webkit-full-screen, .tt-eal-text-block.tt-eal-fullscreen) textarea,
+:is(.tt-eal-text-block:fullscreen, .tt-eal-text-block:-webkit-full-screen, .tt-eal-text-block.tt-eal-fullscreen) .tt-eal-code-view {
     flex: 1 1 auto;
     width: 100%;
     height: 100%;
@@ -594,8 +625,184 @@ body.tt-eal-has-fullscreen :is(#dialogue_popup, .popup) .popup_body {
     box-sizing: border-box;
 }
 
+.tt-eal-role-segment {
+    display: block;
+    padding: 6px 8px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    border-left: 2px solid transparent;
+}
+
+.tt-eal-role-tag {
+    display: inline-block;
+    font-weight: 700;
+    font-size: 0.74rem;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.tt-eal-role-body {
+    display: block;
+    white-space: inherit;
+}
+
+/* System Role (Warm Golden Amber) */
+.tt-eal-role-segment.tt-eal-role-system,
+.tt-eal-role-segment.tt-eal-role-developer {
+    background: color-mix(in srgb, #e5c07b 8%, transparent);
+    border-left-color: color-mix(in srgb, #e5c07b 45%, transparent);
+}
+.tt-eal-role-segment.tt-eal-role-system .tt-eal-role-tag,
+.tt-eal-role-segment.tt-eal-role-developer .tt-eal-role-tag {
+    color: #e5c07b;
+}
+.tt-eal-role-segment.tt-eal-role-system .tt-eal-role-body,
+.tt-eal-role-segment.tt-eal-role-developer .tt-eal-role-body {
+    color: #e5c07b;
+}
+
+/* User Role (Mint / Soft Emerald Green) */
+.tt-eal-role-segment.tt-eal-role-user {
+    background: color-mix(in srgb, #7ee787 8%, transparent);
+    border-left-color: color-mix(in srgb, #7ee787 45%, transparent);
+}
+.tt-eal-role-segment.tt-eal-role-user .tt-eal-role-tag {
+    color: #7ee787;
+}
+.tt-eal-role-segment.tt-eal-role-user .tt-eal-role-body {
+    color: #98c379;
+}
+
+/* Assistant Role (Sky Blue / Cyan) */
+.tt-eal-role-segment.tt-eal-role-assistant,
+.tt-eal-role-segment.tt-eal-role-model {
+    background: color-mix(in srgb, #79c0ff 8%, transparent);
+    border-left-color: color-mix(in srgb, #79c0ff 45%, transparent);
+}
+.tt-eal-role-segment.tt-eal-role-assistant .tt-eal-role-tag,
+.tt-eal-role-segment.tt-eal-role-model .tt-eal-role-tag {
+    color: #79c0ff;
+}
+.tt-eal-role-segment.tt-eal-role-assistant .tt-eal-role-body,
+.tt-eal-role-segment.tt-eal-role-model .tt-eal-role-body {
+    color: #79c0ff;
+}
+
+/* Thought / Reasoning (Lavender / Purple) */
+.tt-eal-role-segment.tt-eal-role-thought {
+    background: color-mix(in srgb, #d2a8ff 8%, transparent);
+    border-left-color: color-mix(in srgb, #d2a8ff 45%, transparent);
+}
+.tt-eal-role-segment.tt-eal-role-thought .tt-eal-role-tag {
+    color: #d2a8ff;
+}
+.tt-eal-role-segment.tt-eal-role-thought .tt-eal-role-body {
+    color: #d2a8ff;
+    font-style: italic;
+}
+
+/* Neutral / Untagged text */
+.tt-eal-role-segment.tt-eal-role-neutral {
+    background: transparent;
+    border-left-color: transparent;
+}
+.tt-eal-role-segment.tt-eal-role-neutral .tt-eal-role-body {
+    color: var(--SmartThemeBodyColor, #eee);
+}
+
+/* Raw JSON / SSE Syntax Highlighting */
+.tt-eal-json-punct {
+    color: var(--SmartThemeBodyColor, #abb2bf);
+    opacity: 0.85;
+}
+
+.tt-eal-json-key {
+    color: #61afef;
+}
+
+.tt-eal-json-str {
+    color: #98c379;
+}
+
+.tt-eal-json-num {
+    color: #d19a66;
+}
+
+.tt-eal-json-bool {
+    color: #c678dd;
+}
+
+/* Role message object container in Raw JSON */
+.tt-eal-json-role-block {
+    display: block;
+    margin: 4px 0;
+    padding: 4px 6px;
+    border-radius: 6px;
+    border-left: 2px solid transparent;
+}
+
+/* System Role (Warm Golden Amber) */
+.tt-eal-json-role-block.tt-eal-json-role-system,
+.tt-eal-json-role-block.tt-eal-json-role-developer {
+    background: color-mix(in srgb, #e5c07b 7%, transparent);
+    border-left-color: color-mix(in srgb, #e5c07b 45%, transparent);
+}
+.tt-eal-json-role-block.tt-eal-json-role-system .tt-eal-json-role-tag,
+.tt-eal-json-role-block.tt-eal-json-role-developer .tt-eal-json-role-tag {
+    color: #e5c07b !important;
+    font-weight: 700;
+}
+.tt-eal-json-role-block.tt-eal-json-role-system .tt-eal-json-role-content,
+.tt-eal-json-role-block.tt-eal-json-role-developer .tt-eal-json-role-content {
+    color: #e5c07b !important;
+}
+
+/* User Role (Mint / Soft Emerald Green) */
+.tt-eal-json-role-block.tt-eal-json-role-user {
+    background: color-mix(in srgb, #7ee787 7%, transparent);
+    border-left-color: color-mix(in srgb, #7ee787 45%, transparent);
+}
+.tt-eal-json-role-block.tt-eal-json-role-user .tt-eal-json-role-tag {
+    color: #7ee787 !important;
+    font-weight: 700;
+}
+.tt-eal-json-role-block.tt-eal-json-role-user .tt-eal-json-role-content {
+    color: #98c379 !important;
+}
+
+/* Assistant Role (Sky Blue / Cyan) */
+.tt-eal-json-role-block.tt-eal-json-role-assistant,
+.tt-eal-json-role-block.tt-eal-json-role-model {
+    background: color-mix(in srgb, #79c0ff 7%, transparent);
+    border-left-color: color-mix(in srgb, #79c0ff 45%, transparent);
+}
+.tt-eal-json-role-block.tt-eal-json-role-assistant .tt-eal-json-role-tag,
+.tt-eal-json-role-block.tt-eal-json-role-model .tt-eal-json-role-tag {
+    color: #79c0ff !important;
+    font-weight: 700;
+}
+.tt-eal-json-role-block.tt-eal-json-role-assistant .tt-eal-json-role-content,
+.tt-eal-json-role-block.tt-eal-json-role-model .tt-eal-json-role-content {
+    color: #79c0ff !important;
+}
+
+/* Thought / Reasoning (Lavender / Purple) */
+.tt-eal-json-role-block.tt-eal-json-role-thought {
+    background: color-mix(in srgb, #d2a8ff 7%, transparent);
+    border-left-color: color-mix(in srgb, #d2a8ff 45%, transparent);
+}
+.tt-eal-json-role-block.tt-eal-json-role-thought .tt-eal-json-role-tag {
+    color: #d2a8ff !important;
+    font-weight: 700;
+}
+.tt-eal-json-role-block.tt-eal-json-role-thought .tt-eal-json-role-content {
+    color: #d2a8ff !important;
+    font-style: italic;
+}
+
 :is(.tt-eal-text-block:fullscreen, .tt-eal-text-block:-webkit-full-screen, .tt-eal-text-block.tt-eal-fullscreen) .tt-eal-fullscreen-only-tool {
-    display: inline-flex;
+    display: inline-flex !important;
 }
 
 .tt-eal-panel button:focus-visible,
@@ -660,6 +867,11 @@ body.tt-eal-has-fullscreen :is(#dialogue_popup, .popup) .popup_body {
 
     .tt-eal-log-target {
         grid-column: 1 / -1;
+    }
+
+    .tt-eal-drawer-divider,
+    .tt-eal-fullscreen-toggle-btn {
+        display: none !important;
     }
 
     :is(.tt-eal-text-block:fullscreen, .tt-eal-text-block:-webkit-full-screen, .tt-eal-text-block.tt-eal-fullscreen) {
