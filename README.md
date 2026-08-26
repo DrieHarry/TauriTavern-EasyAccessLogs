@@ -1,51 +1,46 @@
 # TauriTavern Easy Access Logs
 
-Adds a **Developer & API Logs** button to the TauriTavern top bar.
+Adds quick-access **Developer & API Logs** launchers, customizable global hotkeys, and immersive fullscreen toggles to [TauriTavern](https://github.com/Darkatse/TauriTavern).
 
-## What's New in v2.0.0
-
-- **Immersive Fullscreen App Toggle**: Added a desktop action row in the top bar drawer to toggle the entire TauriTavern application into borderless immersive fullscreen without affecting custom wallpapers.
-- **Role-Based Message Colorizing**: Dedicated colorize buttons in both Formatted Preview Request and Raw JSON Request to visually distinguish `[system]`, `[user]`, and `[assistant]` roles with high contrast, natural colors while preserving 100% exact raw text and copy fidelity.
-- **Fullscreen Section Zoom Controls**: Zoom In (`+`) and Zoom Out (`−`) controls are now accessible directly inside fullscreen mode across all viewers.
-- **Preference & Setting Persistence**: Automatically remembers your Raw Word Wrap and Role Color toggle selections across sessions via `localStorage`, while keeping default zoom behavior.
-
-## What's New in v1.0.1
-
-- **Expanded Desktop Viewer**: Larger, balanced desktop proportions with taller textareas for comfortable reading.
-- **Section Zoom Controls**: Added synchronized Zoom In (`+`) and Zoom Out (`−`) controls for Formatted Preview and Raw JSON / SSE sections.
-- **Instant Fullscreen Mode**: Added instant ($0\text{ms}$) edge-to-edge fullscreen for each viewer, integrated with native Tauri desktop window management.
-- **Raw Word Wrap Toggle**: Added a shared word wrap toggle for the Raw section, plus a dedicated word wrap button inside fullscreen mode.
-- **Enhanced Log Retention & Metadata**: Integrated `Keep Entries:` controls alongside connection metadata with clean input formatting.
-- **Visual Copy Confirmation**: Copy buttons now provide a temporary checkmark confirmation upon copying to clipboard.
-- **Streamlined UI**: Renamed viewer to "LLM API Logs" and cleaned up header descriptions.
+📖 Changelogs: [Here](changelog.md)
 
 ## Features
 
-- Immersive Fullscreen desktop app toggle
-- Role-based message colorizing for Formatted Preview and Raw JSON / SSE requests
-- LLM and image API request logs with synchronized section zoom and word wrap
-- Frontend logs
-- Backend logs
-- Live updates, filters, search, and copy buttons
-- Mobile-friendly layout
+- **Global Keyboard Shortcuts**: Configurable keybindings:
+  - **LLM API Logs** (`F10`)
+  - **Frontend Logs** (`Ctrl + F10`)
+  - **Backend Logs** (`Alt + F10`)
+  - **Immersive Fullscreen** (`F11`)
+- **Multiple Launcher Modes**:
+  - **Standalone Top Bar Icon**: Displays a dedicated waveform launcher icon in the navigation bar with a sleek dropdown menu.
+  - **User Settings Dropdown Integration**: Consolidates User Settings, Developer Logs, and Fullscreen into the native top bar User Settings button.
+- **Immersive Fullscreen App Toggle**: Maximizes TauriTavern into borderless, distraction-free fullscreen mode.
+- **Rich Request & Response Inspection**:
+  - Role-based colorizing for `[system]`, `[user]`, and `[assistant]` message segments in both Formatted Preview and Raw JSON / SSE requests while preserving 100% exact raw text and copy fidelity.
+  - Synchronized section zoom controls (`+` / `−`).
+  - Raw word wrap toggling.
+- **Frontend & Backend System Logs**: Real-time log streaming, log level filtering, instant text search, retention controls, and one-click clipboard copying with visual confirmation.
+- **Session Persistence**: Remembers all user preferences, wrap states, colorizing toggles, launcher visibility, and custom hotkeys across app restarts.
 
 ## Install
 
 1. Open **Extensions** in TauriTavern.
 2. Select **Install extension**.
-3. Paste this URL:
+3. Paste the repository URL:
    `https://github.com/DrieHarry/TauriTavern-EasyAccessLogs`
 4. Reload TauriTavern when prompted.
 
 ## Use
 
-Select the waveform icon in the top bar, then choose the log viewer you want to open.
+- **Hotkeys**: Press `F10` for LLM API Logs, `Ctrl+F10` for Frontend Logs, `Alt+F10` for Backend Logs, or `F11` for Immersive Fullscreen. Press the same hotkey again (or <kbd>Esc</kbd>) to close.
+- **Top Bar Launcher**: Click the waveform icon (or User Settings button if launcher integration is enabled) to open the quick-access menu.
+- **Customization**: Go to **Extensions** $\rightarrow$ **Easy Access Logs** to customize keyboard shortcuts, toggle the top bar icon, or switch to the User Settings launcher dropdown.
 
 ## Compatibility
 
-Requires a compatible TauriTavern build. It is intended for Windows and Android.
+Requires [TauriTavern](https://github.com/Darkatse/TauriTavern) (Windows and Android supported).
 
-In regular SillyTavern, the extension stays inactive because TauriTavern logs are not available.
+In standard web-only SillyTavern builds, the extension gracefully deactivates because Tauri host log APIs are unavailable.
 
 ## Screenshots
 

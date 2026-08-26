@@ -3,9 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
 import {
+    DEFAULT_HOTKEYS,
     describeIndexEntry,
     escapeHtml,
+    formatHotkey,
     loadExtensionSettings,
+    matchesHotkey,
     mergeById,
     normalizeLevel,
     positiveInteger,
@@ -100,15 +103,40 @@ test('loadExtensionSettings and saveExtensionSettings persist user preferences',
         rawWordWrap: false,
         previewRoleColor: false,
         rawRoleColor: false,
+        showTopbarIcon: true,
+        showUserSettingsDropdown: false,
+        hotkeys: { ...DEFAULT_HOTKEYS },
     });
 
-    saveExtensionSettings({ rawWordWrap: true, previewRoleColor: true }, mockStorage);
+    saveExtensionSettings({ rawWordWrap: true, previewRoleColor: true, showUserSettingsDropdown: true }, mockStorage);
     const updated = loadExtensionSettings(mockStorage);
     assert.deepEqual(updated, {
         rawWordWrap: true,
         previewRoleColor: true,
         rawRoleColor: false,
+        showTopbarIcon: false,
+        showUserSettingsDropdown: true,
+        hotkeys: { ...DEFAULT_HOTKEYS },
     });
+
+    saveExtensionSettings({
+        showUserSettingsDropdown: false,
+        showTopbarIcon: false,
+        hotkeys: { llm: { key: 'L', ctrl: true, shift: true, alt: false, meta: false } },
+    }, mockStorage);
+    const custom = loadExtensionSettings(mockStorage);
+    assert.equal(formatHotkey(custom.hotkeys.llm), 'Ctrl + Shift + L');
+    assert.equal(matchesHotkey({ key: 'l', ctrlKey: true, shiftKey: true, altKey: false, metaKey: false }, custom.hotkeys.llm), true);
+    assert.equal(matchesHotkey({ key: 'F10', ctrlKey: false, shiftKey: false, altKey: false, metaKey: false }, custom.hotkeys.llm), false);
+
+    saveExtensionSettings({
+        hotkeys: { llm: null },
+    }, mockStorage);
+    const disabledSetting = loadExtensionSettings(mockStorage);
+    assert.equal(disabledSetting.hotkeys.llm, null);
+    assert.equal(formatHotkey(disabledSetting.hotkeys.llm), 'None');
+    assert.equal(matchesHotkey({ key: 'F10', ctrlKey: false, shiftKey: false, altKey: false, metaKey: false }, disabledSetting.hotkeys.llm), false);
+    assert.equal(matchesHotkey({ key: 'l', ctrlKey: true, shiftKey: true, altKey: false, metaKey: false }, disabledSetting.hotkeys.llm), false);
 });
 
 test('manifest references loadable extension assets', async () => {

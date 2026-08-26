@@ -11,37 +11,29 @@
         >
             <div class="drawer-icon fa-solid fa-file-waveform fa-fw closedIcon tt-eal-drawer-icon"></div>
         </div>
-        <div id="tt-easy-access-logs-panel" class="drawer-content closedDrawer tt-eal-drawer-panel">
-            <div class="tt-eal-drawer-inner">
-                <header class="tt-eal-drawer-heading">
-                    <h3>Developer &amp; API Logs</h3>
-                </header>
-                <p class="tt-eal-drawer-description">
-                    Inspect live API traffic, frontend messages, and host diagnostics.
-                </p>
-                <div class="tt-eal-drawer-actions">
-                    <button class="menu_button menu_button_icon tt-eal-launch" type="button" data-tt-eal-panel="llm">
-                        <i class="fa-solid fa-receipt fa-fw" aria-hidden="true"></i>
-                        <span>LLM API Logs</span>
-                        <i class="fa-solid fa-chevron-right tt-eal-launch-arrow" aria-hidden="true"></i>
-                    </button>
-                    <button class="menu_button menu_button_icon tt-eal-launch" type="button" data-tt-eal-panel="frontend">
-                        <i class="fa-solid fa-desktop fa-fw" aria-hidden="true"></i>
-                        <span>Frontend Logs</span>
-                        <i class="fa-solid fa-chevron-right tt-eal-launch-arrow" aria-hidden="true"></i>
-                    </button>
-                    <button class="menu_button menu_button_icon tt-eal-launch" type="button" data-tt-eal-panel="backend">
-                        <i class="fa-solid fa-server fa-fw" aria-hidden="true"></i>
-                        <span>Backend Logs</span>
-                        <i class="fa-solid fa-chevron-right tt-eal-launch-arrow" aria-hidden="true"></i>
-                    </button>
-                    <div class="tt-eal-drawer-section-label">Additional Feature:</div>
-                    <button class="menu_button menu_button_icon tt-eal-launch tt-eal-fullscreen-toggle-btn" type="button" data-tt-eal-action="fullscreen">
-                        <i class="fa-solid fa-expand fa-fw tt-eal-fullscreen-action-icon" aria-hidden="true"></i>
-                        <span class="tt-eal-fullscreen-action-text">Immersive Fullscreen</span>
-                        <i class="fa-solid fa-chevron-right tt-eal-launch-arrow" aria-hidden="true"></i>
-                    </button>
-                </div>
+        <div id="tt-easy-access-logs-panel" class="drawer-content closedDrawer tt-eal-drawer-panel tt-eal-menu-dropdown">
+            <div class="tt-eal-menu-inner">
+                <button class="tt-eal-menu-item" type="button" data-tt-eal-panel="llm" title="LLM API Logs (F10)" aria-keyshortcuts="F10">
+                    <i class="fa-solid fa-receipt fa-fw" aria-hidden="true"></i>
+                    <span>LLM API Logs</span>
+                    <span class="tt-eal-item-shortcut">F10</span>
+                </button>
+                <button class="tt-eal-menu-item" type="button" data-tt-eal-panel="frontend" title="Frontend Logs (Ctrl+F10)" aria-keyshortcuts="Control+F10">
+                    <i class="fa-solid fa-desktop fa-fw" aria-hidden="true"></i>
+                    <span>Frontend Logs</span>
+                    <span class="tt-eal-item-shortcut">Ctrl+F10</span>
+                </button>
+                <button class="tt-eal-menu-item" type="button" data-tt-eal-panel="backend" title="Backend Logs (Alt+F10)" aria-keyshortcuts="Alt+F10">
+                    <i class="fa-solid fa-server fa-fw" aria-hidden="true"></i>
+                    <span>Backend Logs</span>
+                    <span class="tt-eal-item-shortcut">Alt+F10</span>
+                </button>
+                <div class="tt-eal-menu-divider"></div>
+                <button class="tt-eal-menu-item tt-eal-fullscreen-toggle-btn" type="button" data-tt-eal-action="fullscreen" title="Immersive Fullscreen (F11)" aria-keyshortcuts="F11">
+                    <i class="fa-solid fa-expand fa-fw tt-eal-fullscreen-action-icon" aria-hidden="true"></i>
+                    <span class="tt-eal-fullscreen-action-text">Immersive Fullscreen</span>
+                    <span class="tt-eal-item-shortcut">F11</span>
+                </button>
             </div>
         </div>
     </div>

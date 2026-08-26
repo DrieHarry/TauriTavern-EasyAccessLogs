@@ -1,15 +1,95 @@
 export const MAX_LIVE_ENTRIES = 800;
 export const SETTINGS_STORAGE_KEY = 'tt_eal_settings';
 
+export const DEFAULT_HOTKEYS = Object.freeze({
+    llm: { key: 'F10', ctrl: false, alt: false, shift: false, meta: false },
+    frontend: { key: 'F10', ctrl: true, alt: false, shift: false, meta: false },
+    backend: { key: 'F10', ctrl: false, alt: true, shift: false, meta: false },
+    fullscreen: { key: 'F11', ctrl: false, alt: false, shift: false, meta: false },
+});
+
+export function normalizeHotkey(hotkey) {
+    if (!hotkey || typeof hotkey !== 'object' || !hotkey.key) {
+        return null;
+    }
+    const key = String(hotkey.key).trim().toUpperCase();
+    if (!key) {
+        return null;
+    }
+    return {
+        key,
+        ctrl: Boolean(hotkey.ctrl),
+        alt: Boolean(hotkey.alt),
+        shift: Boolean(hotkey.shift),
+        meta: Boolean(hotkey.meta),
+    };
+}
+
+export function formatHotkey(hotkey) {
+    const norm = normalizeHotkey(hotkey);
+    if (!norm) {
+        return 'None';
+    }
+    const parts = [];
+    if (norm.ctrl) parts.push('Ctrl');
+    if (norm.alt) parts.push('Alt');
+    if (norm.shift) parts.push('Shift');
+    if (norm.meta) parts.push('Meta');
+    parts.push(norm.key);
+    return parts.join(' + ');
+}
+
+export function matchesHotkey(event, hotkey) {
+    const norm = normalizeHotkey(hotkey);
+    if (!event || !norm) {
+        return false;
+    }
+    const eventKey = String(event.key || '').toUpperCase();
+    const eventCode = String(event.code || '').toUpperCase();
+    const targetKey = norm.key;
+
+    const keyMatches = eventKey === targetKey || eventCode === targetKey || eventCode === `KEY${targetKey}` || eventCode === `DIGIT${targetKey}`;
+    if (!keyMatches) {
+        return false;
+    }
+
+    const ctrlMatches = norm.ctrl === Boolean(event.ctrlKey);
+    const altMatches = norm.alt === Boolean(event.altKey);
+    const shiftMatches = norm.shift === Boolean(event.shiftKey);
+    const metaMatches = norm.meta === Boolean(event.metaKey);
+
+    return ctrlMatches && altMatches && shiftMatches && metaMatches;
+}
+
+export function resolveHotkeySetting(saved, defaultHotkey) {
+    if (saved === null) {
+        return null;
+    }
+    if (saved === undefined) {
+        return { ...defaultHotkey };
+    }
+    return normalizeHotkey(saved);
+}
+
 export function loadExtensionSettings(storage = globalThis.localStorage) {
     try {
         const raw = storage?.getItem?.(SETTINGS_STORAGE_KEY);
         if (raw) {
             const parsed = JSON.parse(raw);
+            const showDropdown = Boolean(parsed?.showUserSettingsDropdown);
+            const showTopbar = showDropdown ? false : (parsed?.showTopbarIcon === true || (parsed?.showTopbarIcon === undefined && !showDropdown));
             return {
                 rawWordWrap: Boolean(parsed?.rawWordWrap),
                 previewRoleColor: Boolean(parsed?.previewRoleColor),
                 rawRoleColor: Boolean(parsed?.rawRoleColor),
+                showTopbarIcon: showTopbar,
+                showUserSettingsDropdown: showDropdown,
+                hotkeys: {
+                    llm: resolveHotkeySetting(parsed?.hotkeys?.llm, DEFAULT_HOTKEYS.llm),
+                    frontend: resolveHotkeySetting(parsed?.hotkeys?.frontend, DEFAULT_HOTKEYS.frontend),
+                    backend: resolveHotkeySetting(parsed?.hotkeys?.backend, DEFAULT_HOTKEYS.backend),
+                    fullscreen: resolveHotkeySetting(parsed?.hotkeys?.fullscreen, DEFAULT_HOTKEYS.fullscreen),
+                },
             };
         }
     } catch (error) {
@@ -19,13 +99,25 @@ export function loadExtensionSettings(storage = globalThis.localStorage) {
         rawWordWrap: false,
         previewRoleColor: false,
         rawRoleColor: false,
+        showTopbarIcon: true,
+        showUserSettingsDropdown: false,
+        hotkeys: {
+            llm: { ...DEFAULT_HOTKEYS.llm },
+            frontend: { ...DEFAULT_HOTKEYS.frontend },
+            backend: { ...DEFAULT_HOTKEYS.backend },
+            fullscreen: { ...DEFAULT_HOTKEYS.fullscreen },
+        },
     };
 }
 
 export function saveExtensionSettings(patch, storage = globalThis.localStorage) {
     try {
         const current = loadExtensionSettings(storage);
-        const updated = { ...current, ...patch };
+        const updated = {
+            ...current,
+            ...patch,
+            hotkeys: patch.hotkeys ? { ...current.hotkeys, ...patch.hotkeys } : current.hotkeys,
+        };
         storage?.setItem?.(SETTINGS_STORAGE_KEY, JSON.stringify(updated));
         return updated;
     } catch (error) {
