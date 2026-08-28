@@ -5,16 +5,18 @@ export const DEFAULT_HOTKEYS = Object.freeze({
     llm: { key: 'F10', ctrl: false, alt: false, shift: false, meta: false },
     frontend: { key: 'F10', ctrl: true, alt: false, shift: false, meta: false },
     backend: { key: 'F10', ctrl: false, alt: true, shift: false, meta: false },
-    fullscreen: { key: 'F11', ctrl: false, alt: false, shift: false, meta: false },
 });
 
 export function normalizeHotkey(hotkey) {
     if (!hotkey || typeof hotkey !== 'object' || !hotkey.key) {
         return null;
     }
-    const key = String(hotkey.key).trim().toUpperCase();
+    let key = String(hotkey.key).trim().toUpperCase();
     if (!key) {
         return null;
+    }
+    if (key === 'CTRL') {
+        key = 'CONTROL';
     }
     return {
         key,
@@ -25,23 +27,56 @@ export function normalizeHotkey(hotkey) {
     };
 }
 
+export function isModifierKeyName(key) {
+    if (!key) return false;
+    const k = String(key).trim().toUpperCase();
+    return k === 'CONTROL' || k === 'CTRL' || k === 'ALT' || k === 'SHIFT' || k === 'META';
+}
+
+export function isModifierHotkey(hotkey) {
+    const norm = normalizeHotkey(hotkey);
+    if (!norm) return false;
+    return isModifierKeyName(norm.key);
+}
+
+export function matchesModifierHotkey(pressedKeyName, hotkey) {
+    const norm = normalizeHotkey(hotkey);
+    if (!norm || !pressedKeyName) return false;
+    const p = String(pressedKeyName).trim().toUpperCase();
+    const k = norm.key.toUpperCase();
+    if ((p === 'CONTROL' || p === 'CTRL') && (k === 'CONTROL' || k === 'CTRL')) return true;
+    if (p === 'ALT' && k === 'ALT') return true;
+    if (p === 'SHIFT' && k === 'SHIFT') return true;
+    if (p === 'META' && k === 'META') return true;
+    return false;
+}
+
 export function formatHotkey(hotkey) {
     const norm = normalizeHotkey(hotkey);
     if (!norm) {
         return 'None';
     }
+    const k = norm.key.toUpperCase();
+    if (k === 'CONTROL' || k === 'CTRL') return 'Ctrl';
+    if (k === 'ALT') return 'Alt';
+    if (k === 'SHIFT') return 'Shift';
+    if (k === 'META') return 'Meta';
+
     const parts = [];
     if (norm.ctrl) parts.push('Ctrl');
     if (norm.alt) parts.push('Alt');
     if (norm.shift) parts.push('Shift');
     if (norm.meta) parts.push('Meta');
-    parts.push(norm.key);
+    parts.push(norm.key === 'TAB' ? 'Tab' : norm.key);
     return parts.join(' + ');
 }
 
 export function matchesHotkey(event, hotkey) {
     const norm = normalizeHotkey(hotkey);
     if (!event || !norm) {
+        return false;
+    }
+    if (isModifierHotkey(norm)) {
         return false;
     }
     const eventKey = String(event.key || '').toUpperCase();
@@ -88,7 +123,6 @@ export function loadExtensionSettings(storage = globalThis.localStorage) {
                     llm: resolveHotkeySetting(parsed?.hotkeys?.llm, DEFAULT_HOTKEYS.llm),
                     frontend: resolveHotkeySetting(parsed?.hotkeys?.frontend, DEFAULT_HOTKEYS.frontend),
                     backend: resolveHotkeySetting(parsed?.hotkeys?.backend, DEFAULT_HOTKEYS.backend),
-                    fullscreen: resolveHotkeySetting(parsed?.hotkeys?.fullscreen, DEFAULT_HOTKEYS.fullscreen),
                 },
             };
         }
@@ -105,7 +139,6 @@ export function loadExtensionSettings(storage = globalThis.localStorage) {
             llm: { ...DEFAULT_HOTKEYS.llm },
             frontend: { ...DEFAULT_HOTKEYS.frontend },
             backend: { ...DEFAULT_HOTKEYS.backend },
-            fullscreen: { ...DEFAULT_HOTKEYS.fullscreen },
         },
     };
 }

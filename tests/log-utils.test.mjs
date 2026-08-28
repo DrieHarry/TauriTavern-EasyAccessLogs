@@ -7,8 +7,10 @@ import {
     describeIndexEntry,
     escapeHtml,
     formatHotkey,
+    isModifierHotkey,
     loadExtensionSettings,
     matchesHotkey,
+    matchesModifierHotkey,
     mergeById,
     normalizeLevel,
     positiveInteger,
@@ -137,6 +139,30 @@ test('loadExtensionSettings and saveExtensionSettings persist user preferences',
     assert.equal(formatHotkey(disabledSetting.hotkeys.llm), 'None');
     assert.equal(matchesHotkey({ key: 'F10', ctrlKey: false, shiftKey: false, altKey: false, metaKey: false }, disabledSetting.hotkeys.llm), false);
     assert.equal(matchesHotkey({ key: 'l', ctrlKey: true, shiftKey: true, altKey: false, metaKey: false }, disabledSetting.hotkeys.llm), false);
+
+    // Standalone modifier (Ctrl)
+    saveExtensionSettings({
+        hotkeys: { llm: { key: 'Control' } },
+    }, mockStorage);
+    const modSetting = loadExtensionSettings(mockStorage);
+    assert.equal(formatHotkey(modSetting.hotkeys.llm), 'Ctrl');
+    assert.equal(isModifierHotkey(modSetting.hotkeys.llm), true);
+    assert.equal(matchesModifierHotkey('CONTROL', modSetting.hotkeys.llm), true);
+    assert.equal(matchesModifierHotkey('ALT', modSetting.hotkeys.llm), false);
+    assert.equal(matchesHotkey({ key: 'Control' }, modSetting.hotkeys.llm), false);
+
+    // Standalone Tab and Combo Tab
+    saveExtensionSettings({
+        hotkeys: {
+            frontend: { key: 'Tab' },
+            backend: { key: 'Tab', ctrl: true },
+        },
+    }, mockStorage);
+    const tabSettings = loadExtensionSettings(mockStorage);
+    assert.equal(formatHotkey(tabSettings.hotkeys.frontend), 'Tab');
+    assert.equal(matchesHotkey({ key: 'Tab' }, tabSettings.hotkeys.frontend), true);
+    assert.equal(formatHotkey(tabSettings.hotkeys.backend), 'Ctrl + Tab');
+    assert.equal(matchesHotkey({ key: 'Tab', ctrlKey: true }, tabSettings.hotkeys.backend), true);
 });
 
 test('manifest references loadable extension assets', async () => {

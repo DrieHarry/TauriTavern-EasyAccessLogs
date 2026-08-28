@@ -95,10 +95,22 @@
 
 .tt-eal-menu-item i,
 .tt-eal-user-dropdown-item i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    min-width: 20px;
+    max-width: 20px;
+    height: 20px;
     text-align: center;
     color: var(--tt-eal-accent, #818cf8);
     opacity: 0.9;
     font-size: 0.95rem;
+    line-height: 1;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    vertical-align: middle;
 }
 
 .tt-eal-menu-item .tt-eal-item-shortcut,
@@ -990,8 +1002,7 @@ body.tt-eal-has-fullscreen :is(#dialogue_popup, .popup) .popup_body {
     }
 
     .tt-eal-menu-divider,
-    .tt-eal-user-dropdown-divider,
-    .tt-eal-fullscreen-toggle-btn {
+    .tt-eal-user-dropdown-divider {
         display: none !important;
     }
 

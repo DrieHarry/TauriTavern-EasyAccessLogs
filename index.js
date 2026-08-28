@@ -6,9 +6,11 @@ import {
     formatClock,
     formatHotkey,
     formatTimestamp,
+    isModifierHotkey,
     levelClass,
     loadExtensionSettings,
     matchesHotkey,
+    matchesModifierHotkey,
     mergeById,
     normalizeLevel,
     positiveInteger,
@@ -157,28 +159,9 @@ function bindDrawer(drawer) {
         }, { signal });
     }
 
-    const fullscreenActionBtn = drawer.querySelector('[data-tt-eal-action="fullscreen"]');
-    if (fullscreenActionBtn) {
-        fullscreenActionBtn.addEventListener('click', async event => {
-            event.preventDefault();
-            event.stopPropagation();
-            setDrawerOpen(drawer, false);
-            try {
-                await toggleAppFullscreen();
-            } catch (error) {
-                reportError(error, 'Could not toggle fullscreen.');
-            }
-            await updateFullscreenButtonState(drawer);
-        }, { signal });
-    }
-
     updateDrawerShortcuts(drawer);
-    void updateFullscreenButtonState(drawer);
-    document.addEventListener('fullscreenchange', () => void updateFullscreenButtonState(drawer), { signal });
-    document.addEventListener('webkitfullscreenchange', () => void updateFullscreenButtonState(drawer), { signal });
     window.addEventListener('resize', () => {
         closeUserSettingsDropdown();
-        void updateFullscreenButtonState(drawer);
     }, { signal });
 
     document.addEventListener('pointerdown', event => {
@@ -206,6 +189,9 @@ function bindDrawer(drawer) {
         }
     }, { signal });
 
+    let activeModifierPress = null;
+    let comboTriggeredDuringModifier = false;
+
     window.addEventListener('keydown', event => {
         const activeTag = document.activeElement?.tagName?.toLowerCase();
         const isEditing = activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select' || document.activeElement?.isContentEditable;
@@ -214,24 +200,21 @@ function bindDrawer(drawer) {
             return;
         }
 
-        const settings = loadExtensionSettings();
-        const hotkeys = settings.hotkeys;
-
-        if (matchesHotkey(event, hotkeys.fullscreen)) {
-            event.preventDefault();
-            event.stopPropagation();
-            setDrawerOpen(drawer, false);
-            closeUserSettingsDropdown();
-            void (async () => {
-                try {
-                    await toggleAppFullscreen();
-                } catch (error) {
-                    reportError(error, 'Could not toggle fullscreen.');
-                }
-                await updateFullscreenButtonState(drawer);
-            })();
+        const keyUpper = String(event.key || '').toUpperCase();
+        if (keyUpper === 'CONTROL' || keyUpper === 'ALT' || keyUpper === 'SHIFT' || keyUpper === 'META') {
+            if (!activeModifierPress) {
+                activeModifierPress = keyUpper;
+                comboTriggeredDuringModifier = false;
+            }
             return;
         }
+
+        if (activeModifierPress) {
+            comboTriggeredDuringModifier = true;
+        }
+
+        const settings = loadExtensionSettings();
+        const hotkeys = settings.hotkeys;
 
         if (matchesHotkey(event, hotkeys.llm)) {
             event.preventDefault();
@@ -261,19 +244,90 @@ function bindDrawer(drawer) {
         }
     }, { signal, capture: true });
 
+    window.addEventListener('keyup', event => {
+        const activeTag = document.activeElement?.tagName?.toLowerCase();
+        const isEditing = activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select' || document.activeElement?.isContentEditable;
+        if (isEditing) {
+            activeModifierPress = null;
+            comboTriggeredDuringModifier = false;
+            return;
+        }
+
+        const keyUpper = String(event.key || '').toUpperCase();
+        if (activeModifierPress && (keyUpper === activeModifierPress || (keyUpper === 'CTRL' && activeModifierPress === 'CONTROL'))) {
+            const modToMatch = activeModifierPress;
+            const wasCombo = comboTriggeredDuringModifier;
+            activeModifierPress = null;
+            comboTriggeredDuringModifier = false;
+
+            if (!wasCombo) {
+                const settings = loadExtensionSettings();
+                const hotkeys = settings.hotkeys;
+
+                if (matchesModifierHotkey(modToMatch, hotkeys.llm)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setDrawerOpen(drawer, false);
+                    closeUserSettingsDropdown();
+                    requestPanel('llm');
+                    return;
+                }
+                if (matchesModifierHotkey(modToMatch, hotkeys.frontend)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setDrawerOpen(drawer, false);
+                    closeUserSettingsDropdown();
+                    requestPanel('frontend');
+                    return;
+                }
+                if (matchesModifierHotkey(modToMatch, hotkeys.backend)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setDrawerOpen(drawer, false);
+                    closeUserSettingsDropdown();
+                    requestPanel('backend');
+                    return;
+                }
+            }
+        }
+    }, { signal, capture: true });
+
+    window.addEventListener('blur', () => {
+        activeModifierPress = null;
+        comboTriggeredDuringModifier = false;
+    }, { signal });
+
     document.addEventListener('click', event => {
         if (isBypassingUserSettingsIntercept) {
+            return;
+        }
+        if (event.target.closest?.('.drawer-content, .popup, #dialogue_popup, .popup-dialog, .tt-eal-user-dropdown')) {
             return;
         }
         const settings = loadExtensionSettings();
         if (!settings.showUserSettingsDropdown) {
             return;
         }
-        const userBtn = getUserSettingsButton();
+        const userBtn = getUserSettingsToggle();
         if (!userBtn) {
             return;
         }
         if (userBtn.contains(event.target) || userBtn === event.target) {
+            if (isUserSettingsDrawerOpen()) {
+                closeUserSettingsDropdown();
+                setTimeout(() => {
+                    const drawer = document.getElementById('user-settings-button');
+                    const content = drawer?.querySelector('.drawer-content') || document.getElementById('user-settings-block');
+                    const icon = drawer?.querySelector('.drawer-icon');
+                    if (content?.classList.contains('openDrawer')) {
+                        content.classList.remove('openDrawer');
+                        content.classList.add('closedDrawer');
+                        icon?.classList.remove('openIcon');
+                        icon?.classList.add('closedIcon');
+                    }
+                }, 100);
+                return;
+            }
             event.preventDefault();
             event.stopImmediatePropagation();
             void toggleUserSettingsDropdown(userBtn);
@@ -293,18 +347,38 @@ function closeUserSettingsDropdown() {
     }
 }
 
-function getUserSettingsButton() {
+function isUserSettingsDrawerOpen() {
+    if (typeof document?.querySelector !== 'function') {
+        return false;
+    }
+    const content = document.getElementById('user-settings-block')
+        || document.querySelector('#user-settings-button .drawer-content');
+    return Boolean(content && content.classList.contains('openDrawer'));
+}
+
+function getUserSettingsToggle() {
     if (typeof document?.querySelector !== 'function') {
         return null;
     }
-    return document.getElementById('user-settings-button')
-        || document.querySelector('#top-settings-holder [id*="user-settings"]')
-        || document.querySelector('#top-settings-holder .fa-user-gear, #top-settings-holder .fa-user')?.closest('.drawer-toggle, .drawer-header, button, [role="button"]')
-        || document.querySelector('[title*="User Settings"], [aria-label*="User Settings"]')
-        || null;
+    const userDrawer = document.getElementById('user-settings-button');
+    if (userDrawer) {
+        const toggle = userDrawer.querySelector('.drawer-toggle, .drawer-icon');
+        if (toggle) {
+            return toggle;
+        }
+        return userDrawer;
+    }
+    const icon = document.querySelector(
+        '#top-settings-holder .fa-user-cog, #top-settings-holder .fa-user-gear, #top-settings-holder .fa-user, ' +
+        '.drawer-icon[title*="User Settings" i], .drawer-icon[data-i18n*="User Settings" i]'
+    );
+    if (icon) {
+        return icon.closest('.drawer-toggle, .drawer-header, button, [role="button"]') || icon;
+    }
+    return null;
 }
 
-async function toggleUserSettingsDropdown(userBtn) {
+function toggleUserSettingsDropdown(userBtn) {
     if (activeUserDropdownElement) {
         closeUserSettingsDropdown();
         return;
@@ -314,44 +388,49 @@ async function toggleUserSettingsDropdown(userBtn) {
     dropdown.setAttribute('role', 'menu');
     dropdown.setAttribute('aria-label', 'User Settings & Quick Access');
 
-    const originalIconClass = userBtn.querySelector('.drawer-icon, i')?.className || 'fa-solid fa-user-gear fa-fw';
     const userSettingsItem = element('button', 'tt-eal-user-dropdown-item');
     userSettingsItem.type = 'button';
     userSettingsItem.setAttribute('role', 'menuitem');
-    const userIcon = element('i', originalIconClass);
+    const userIcon = element('i', 'fa-solid fa-user-cog fa-fw');
     userIcon.setAttribute('aria-hidden', 'true');
     const userLabel = element('span', '', 'User Settings');
-    userSettingsItem.append(userIcon, userLabel);
+    const userShortcut = element('span', 'tt-eal-item-shortcut', '');
+    userSettingsItem.append(userIcon, userLabel, userShortcut);
     userSettingsItem.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
         closeUserSettingsDropdown();
         isBypassingUserSettingsIntercept = true;
         try {
-            const drawer = userBtn.closest('.drawer');
-            const drawerContent = drawer?.querySelector('.drawer-content');
+            const drawer = userBtn.closest('.drawer') || document.getElementById('user-settings-button');
+            const toggle = drawer?.querySelector('.drawer-toggle, .drawer-icon') || userBtn;
+            if (typeof toggle.click === 'function') {
+                toggle.click();
+            } else {
+                const drawerContent = drawer?.querySelector('.drawer-content') || document.getElementById('user-settings-block');
+                if (drawerContent) {
+                    const wasOpen = drawerContent.classList.contains('openDrawer');
+                    drawerContent.classList.toggle('openDrawer', !wasOpen);
+                    drawerContent.classList.toggle('closedDrawer', wasOpen);
+                }
+            }
+        } catch {
+            const drawer = userBtn.closest('.drawer') || document.getElementById('user-settings-button');
+            const drawerContent = drawer?.querySelector('.drawer-content') || document.getElementById('user-settings-block');
             if (drawerContent) {
                 const wasOpen = drawerContent.classList.contains('openDrawer');
                 drawerContent.classList.toggle('openDrawer', !wasOpen);
                 drawerContent.classList.toggle('closedDrawer', wasOpen);
-                const icon = drawer.querySelector('.drawer-icon');
-                icon?.classList.toggle('openIcon', !wasOpen);
-                icon?.classList.toggle('closedIcon', wasOpen);
-                userBtn.setAttribute('aria-expanded', String(!wasOpen));
-            } else {
-                userBtn.click();
             }
         } finally {
             setTimeout(() => {
                 isBypassingUserSettingsIntercept = false;
-            }, 50);
+            }, 100);
         }
     });
 
     const settings = loadExtensionSettings();
     const hotkeys = settings.hotkeys;
-
-    const divider1 = element('div', 'tt-eal-user-dropdown-divider');
 
     const llmItem = element('button', 'tt-eal-user-dropdown-item');
     llmItem.type = 'button';
@@ -401,30 +480,7 @@ async function toggleUserSettingsDropdown(userBtn) {
         requestPanel('backend');
     });
 
-    const divider2 = element('div', 'tt-eal-user-dropdown-divider');
-
-    const isFull = await checkTauriFullscreenState();
-    const fullscreenItem = element('button', 'tt-eal-user-dropdown-item');
-    fullscreenItem.type = 'button';
-    fullscreenItem.setAttribute('role', 'menuitem');
-    const fullscreenIcon = element('i', `fa-solid ${isFull ? 'fa-compress' : 'fa-expand'} fa-fw`);
-    fullscreenIcon.setAttribute('aria-hidden', 'true');
-    const fullscreenLabel = element('span', '', isFull ? 'Exit Fullscreen' : 'Immersive Fullscreen');
-    const fullscreenShortcutText = formatHotkey(hotkeys.fullscreen);
-    const fullscreenShortcut = element('span', 'tt-eal-item-shortcut', fullscreenShortcutText === 'None' ? '' : fullscreenShortcutText);
-    fullscreenItem.append(fullscreenIcon, fullscreenLabel, fullscreenShortcut);
-    fullscreenItem.addEventListener('click', async event => {
-        event.preventDefault();
-        event.stopPropagation();
-        closeUserSettingsDropdown();
-        try {
-            await toggleAppFullscreen();
-        } catch (error) {
-            reportError(error, 'Could not toggle fullscreen.');
-        }
-    });
-
-    dropdown.append(userSettingsItem, divider1, llmItem, frontendItem, backendItem, divider2, fullscreenItem);
+    dropdown.append(userSettingsItem, llmItem, frontendItem, backendItem);
 
     const rect = userBtn.getBoundingClientRect();
     const isTopBar = rect.top < 100;
@@ -451,7 +507,6 @@ function updateDrawerShortcuts(drawer) {
         { panel: 'llm', hotkey: hotkeys.llm, title: 'LLM API Logs' },
         { panel: 'frontend', hotkey: hotkeys.frontend, title: 'Frontend Logs' },
         { panel: 'backend', hotkey: hotkeys.backend, title: 'Backend Logs' },
-        { action: 'fullscreen', hotkey: hotkeys.fullscreen, title: 'Immersive Fullscreen' },
     ];
 
     for (const item of items) {
@@ -544,12 +599,13 @@ function setupSettingsPanel() {
         { id: 'llm', label: 'LLM API Logs', icon: 'fa-receipt' },
         { id: 'frontend', label: 'Frontend Logs', icon: 'fa-desktop' },
         { id: 'backend', label: 'Backend Logs', icon: 'fa-server' },
-        { id: 'fullscreen', label: 'Immersive Fullscreen', icon: 'fa-expand' },
     ];
 
     const hotkeyButtons = {};
     let recordingAction = null;
-    let recordingListener = null;
+    let recordingKeyDownListener = null;
+    let recordingKeyUpListener = null;
+    let recordingPendingModifier = null;
 
     function stopRecording() {
         if (recordingAction && hotkeyButtons[recordingAction]) {
@@ -557,11 +613,16 @@ function setupSettingsPanel() {
             const current = loadExtensionSettings();
             hotkeyButtons[recordingAction].textContent = formatHotkey(current.hotkeys[recordingAction]);
         }
-        if (recordingListener) {
-            window.removeEventListener('keydown', recordingListener, { capture: true });
-            recordingListener = null;
+        if (recordingKeyDownListener) {
+            window.removeEventListener('keydown', recordingKeyDownListener, { capture: true });
+            recordingKeyDownListener = null;
+        }
+        if (recordingKeyUpListener) {
+            window.removeEventListener('keyup', recordingKeyUpListener, { capture: true });
+            recordingKeyUpListener = null;
         }
         recordingAction = null;
+        recordingPendingModifier = null;
         activeRecordingStopFn = null;
     }
 
@@ -570,11 +631,12 @@ function setupSettingsPanel() {
             activeRecordingStopFn();
         }
         recordingAction = actionId;
+        recordingPendingModifier = null;
         activeRecordingStopFn = stopRecording;
         btn.classList.add('recording');
         btn.textContent = 'Press keys...';
 
-        recordingListener = event => {
+        recordingKeyDownListener = event => {
             event.preventDefault();
             event.stopPropagation();
 
@@ -593,13 +655,22 @@ function setupSettingsPanel() {
                 return;
             }
 
-            const modifierKeys = ['Control', 'Shift', 'Alt', 'Meta', 'CapsLock', 'Tab'];
-            if (modifierKeys.includes(event.key)) {
+            if (event.key === 'CapsLock') {
+                return;
+            }
+
+            const keyUpper = String(event.key || '').toUpperCase();
+            if (keyUpper === 'CONTROL' || keyUpper === 'ALT' || keyUpper === 'SHIFT' || keyUpper === 'META') {
+                recordingPendingModifier = keyUpper;
+                const label = keyUpper === 'CONTROL' ? 'Ctrl' : keyUpper === 'ALT' ? 'Alt' : keyUpper === 'SHIFT' ? 'Shift' : 'Meta';
+                btn.textContent = `${label} + ...`;
                 return;
             }
 
             let key = event.key.toUpperCase();
-            if (event.code && /^Key[A-Z]$/i.test(event.code)) {
+            if (event.key === 'Tab') {
+                key = 'TAB';
+            } else if (event.code && /^Key[A-Z]$/i.test(event.code)) {
                 key = event.code.slice(3).toUpperCase();
             } else if (event.code && /^Digit[0-9]$/i.test(event.code)) {
                 key = event.code.slice(5);
@@ -623,7 +694,30 @@ function setupSettingsPanel() {
             updateDrawerShortcuts(drawerElement);
         };
 
-        window.addEventListener('keydown', recordingListener, { capture: true });
+        recordingKeyUpListener = event => {
+            const keyUpper = String(event.key || '').toUpperCase();
+            if (recordingPendingModifier && (keyUpper === recordingPendingModifier || (keyUpper === 'CTRL' && recordingPendingModifier === 'CONTROL'))) {
+                event.preventDefault();
+                event.stopPropagation();
+                const modKey = recordingPendingModifier;
+                const newHotkey = {
+                    key: modKey,
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                    meta: false,
+                };
+                const current = loadExtensionSettings();
+                const newHotkeys = { ...current.hotkeys, [actionId]: newHotkey };
+                saveExtensionSettings({ hotkeys: newHotkeys });
+                stopRecording();
+                btn.textContent = formatHotkey(newHotkey);
+                updateDrawerShortcuts(drawerElement);
+            }
+        };
+
+        window.addEventListener('keydown', recordingKeyDownListener, { capture: true });
+        window.addEventListener('keyup', recordingKeyUpListener, { capture: true });
     }
 
     for (const act of actions) {
@@ -685,7 +779,7 @@ function setupSettingsPanel() {
 
     // Setting 2: Show launcher dropdown on User Settings
     const dropdownLabel = element('label', 'checkbox_label');
-    const dropdownDesc = 'Replaces the User Settings top bar button with a menu to quickly access User Settings, Developer Logs, and Fullscreen. Disables the standalone top bar icon when enabled.';
+    const dropdownDesc = 'Replaces the User Settings top bar button with a menu to quickly access User Settings and Developer Logs. Disables the standalone top bar icon when enabled.';
     dropdownLabel.title = dropdownDesc;
     dropdownLabel.setAttribute('aria-label', dropdownDesc);
 
@@ -733,117 +827,6 @@ function setupSettingsPanel() {
     updateSettingsUI(settings);
 }
 
-function getTauriWindow() {
-    try {
-        const tauri = window.__TAURI__;
-        if (tauri?.window) {
-            return tauri.window.getCurrentWindow?.() || tauri.window.appWindow || null;
-        }
-    } catch (error) {
-        // ignore
-    }
-    return null;
-}
-
-async function setTauriWindowFullscreen(enable) {
-    try {
-        const win = getTauriWindow();
-        if (win && typeof win.setFullscreen === 'function') {
-            await win.setFullscreen(enable);
-            return true;
-        }
-        if (typeof window.__TAURI_INVOKE__ === 'function') {
-            await window.__TAURI_INVOKE__('tauri', {
-                __tauriModule: 'Window',
-                message: { cmd: 'setFullscreen', value: enable }
-            });
-            return true;
-        }
-    } catch (error) {
-        // Tauri 2 ACL sandbox restricts direct Rust window plugin invocation for extensions.
-        // HTML5 requestFullscreen natively handles window fullscreen in WebView2.
-    }
-    return false;
-}
-
-function isAppFullscreen() {
-    if (document.fullscreenElement || document.webkitFullscreenElement) {
-        return true;
-    }
-    if (typeof window.innerHeight === 'number' && typeof screen.height === 'number') {
-        if (Math.abs(window.innerHeight - screen.height) < 12 && Math.abs(window.innerWidth - screen.width) < 12) {
-            return true;
-        }
-    }
-    return false;
-}
-
-async function checkTauriFullscreenState() {
-    try {
-        const win = getTauriWindow();
-        if (win && typeof win.isFullscreen === 'function') {
-            return await win.isFullscreen();
-        }
-    } catch (error) {
-        // ignore
-    }
-    return isAppFullscreen();
-}
-
-async function toggleAppFullscreen() {
-    const isCurrentlyFull = isAppFullscreen();
-    const targetState = !isCurrentlyFull;
-
-    try {
-        if (targetState) {
-            const req = document.documentElement.requestFullscreen?.()
-                || document.documentElement.webkitRequestFullscreen?.()
-                || document.body.requestFullscreen?.();
-            if (req && typeof req.then === 'function') {
-                await req;
-            }
-        } else if (document.fullscreenElement || document.webkitFullscreenElement) {
-            const exit = document.exitFullscreen?.() || document.webkitExitFullscreen?.();
-            if (exit && typeof exit.then === 'function') {
-                await exit;
-            }
-        }
-    } catch (error) {
-        console.warn('[TauriTavern Easy Access Logs] Fullscreen toggle attempt:', error);
-        reportError(error, 'Could not toggle fullscreen.');
-    }
-
-    try {
-        await setTauriWindowFullscreen(targetState);
-    } catch (error) {
-        // ignore
-    }
-
-    try {
-        window.dispatchEvent(new Event('resize'));
-    } catch (error) {
-        // ignore
-    }
-}
-
-async function updateFullscreenButtonState(drawer) {
-    const fullscreenBtn = drawer?.querySelector?.('[data-tt-eal-action="fullscreen"]');
-    if (!fullscreenBtn) {
-        return;
-    }
-    const isFull = await checkTauriFullscreenState();
-    const icon = fullscreenBtn.querySelector('.tt-eal-fullscreen-action-icon');
-    const label = fullscreenBtn.querySelector('.tt-eal-fullscreen-action-text');
-    if (icon) {
-        icon.className = `fa-solid ${isFull ? 'fa-compress' : 'fa-expand'} fa-fw tt-eal-fullscreen-action-icon`;
-    }
-    if (label) {
-        label.textContent = isFull ? 'Exit Fullscreen' : 'Immersive Fullscreen';
-    }
-    fullscreenBtn.title = isFull ? 'Exit Fullscreen' : 'Immersive Fullscreen';
-    fullscreenBtn.setAttribute('aria-label', isFull ? 'Exit Fullscreen' : 'Immersive Fullscreen');
-}
-
 function isDrawerOpen(drawer) {
     return drawer.querySelector(`#${DRAWER_PANEL_ID}`)?.classList.contains('openDrawer') ?? false;
 }
@@ -879,7 +862,6 @@ function setDrawerOpen(drawer, open) {
 
     if (open) {
         positionDrawerPanel(drawer);
-        void updateFullscreenButtonState(drawer);
         for (const otherPanel of document.querySelectorAll('.openDrawer:not(.pinnedOpen)')) {
             if (otherPanel === panel) {
                 continue;
