@@ -121,18 +121,6 @@
     padding-left: 8px;
 }
 
-.tt-eal-menu-divider,
-.tt-eal-user-dropdown-divider {
-    height: 1px;
-    margin: 3px 2px;
-    background: color-mix(in srgb, var(--tt-eal-border) 60%, transparent);
-}
-
-.tt-eal-setting-disabled {
-    opacity: 0.5;
-    transition: opacity 140ms ease;
-}
-
 /* Hotkey Customization Settings */
 .tt-eal-hotkeys-section {
     display: flex;
@@ -999,11 +987,6 @@ body.tt-eal-has-fullscreen :is(#dialogue_popup, .popup) .popup_body {
 
     .tt-eal-log-target {
         grid-column: 1 / -1;
-    }
-
-    .tt-eal-menu-divider,
-    .tt-eal-user-dropdown-divider {
-        display: none !important;
     }
 
     :is(.tt-eal-text-block:fullscreen, .tt-eal-text-block:-webkit-full-screen, .tt-eal-text-block.tt-eal-fullscreen) {

@@ -161,11 +161,21 @@ function bindDrawer(drawer) {
 
     enableMenuKeyboardNavigation(drawer, '[data-tt-eal-panel]');
     updateDrawerShortcuts(drawer);
+    let activeModifierPress = null;
+    let comboTriggeredDuringModifier = false;
+
     window.addEventListener('resize', () => {
         closeUserSettingsDropdown();
     }, { signal });
 
+    window.addEventListener('scroll', () => {
+        closeUserSettingsDropdown();
+    }, { signal, passive: true });
+
     document.addEventListener('pointerdown', event => {
+        if (activeModifierPress) {
+            comboTriggeredDuringModifier = true;
+        }
         if (isDrawerOpen(drawer) && !drawer.contains(event.target)) {
             setDrawerOpen(drawer, false);
         }
@@ -189,9 +199,6 @@ function bindDrawer(drawer) {
             }
         }
     }, { signal });
-
-    let activeModifierPress = null;
-    let comboTriggeredDuringModifier = false;
 
     window.addEventListener('keydown', event => {
         const activeTag = document.activeElement?.tagName?.toLowerCase();
@@ -494,13 +501,13 @@ function toggleUserSettingsDropdown(userBtn) {
     const rect = userBtn.getBoundingClientRect();
     const isTopBar = rect.top < 100;
     if (isTopBar) {
-        dropdown.style.top = `${rect.bottom + 6}px`;
+        dropdown.style.top = `${Math.round(rect.bottom + 6)}px`;
         const dropdownWidth = dropdown.offsetWidth || 230;
         const maxLeft = Math.max(8, window.innerWidth - dropdownWidth - 8);
-        dropdown.style.left = `${Math.min(maxLeft, Math.max(8, rect.left))}px`;
+        dropdown.style.left = `${Math.round(Math.min(maxLeft, Math.max(8, rect.left)))}px`;
     } else {
-        dropdown.style.top = `${rect.top}px`;
-        dropdown.style.left = `${rect.right + 8}px`;
+        dropdown.style.top = `${Math.round(rect.top)}px`;
+        dropdown.style.left = `${Math.round(rect.right + 8)}px`;
     }
 }
 
@@ -897,15 +904,15 @@ function positionDrawerPanel(drawer) {
     const rect = toggle.getBoundingClientRect();
     const isTopBar = rect.top < 100;
     if (isTopBar) {
-        panel.style.top = `${rect.bottom + 6}px`;
+        panel.style.top = `${Math.round(rect.bottom + 6)}px`;
         const panelWidth = panel.offsetWidth || 230;
         const maxLeft = Math.max(8, window.innerWidth - panelWidth - 8);
-        panel.style.left = `${Math.min(maxLeft, Math.max(8, rect.left))}px`;
+        panel.style.left = `${Math.round(Math.min(maxLeft, Math.max(8, rect.left)))}px`;
         panel.style.right = 'auto';
         panel.style.bottom = 'auto';
     } else {
-        panel.style.top = `${rect.top}px`;
-        panel.style.left = `${rect.right + 8}px`;
+        panel.style.top = `${Math.round(rect.top)}px`;
+        panel.style.left = `${Math.round(rect.right + 8)}px`;
         panel.style.right = 'auto';
         panel.style.bottom = 'auto';
     }
@@ -1155,7 +1162,8 @@ async function createLivePanel(kind, api) {
             }
         }
         list.replaceChildren(fragment);
-        countStatus.textContent = `${shown.length} shown · ${entries.length} loaded${paused ? ' · paused' : ''}`;
+        const levelSuffix = selectedLevel === 'ALL' ? '' : ` (${selectedLevel})`;
+        countStatus.textContent = `${shown.length} shown${levelSuffix} · ${entries.length} loaded${paused ? ' · paused' : ''}`;
         if (followLatest) {
             scrollToLatest();
             requestAnimationFrame(scrollToLatest);
