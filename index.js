@@ -159,6 +159,7 @@ function bindDrawer(drawer) {
         }, { signal });
     }
 
+    enableMenuKeyboardNavigation(drawer, '[data-tt-eal-panel]');
     updateDrawerShortcuts(drawer);
     window.addEventListener('resize', () => {
         closeUserSettingsDropdown();
@@ -169,7 +170,7 @@ function bindDrawer(drawer) {
             setDrawerOpen(drawer, false);
         }
         if (activeUserDropdownElement && !activeUserDropdownElement.contains(event.target)) {
-            const userBtn = getUserSettingsButton();
+            const userBtn = getUserSettingsToggle();
             if (!userBtn || !userBtn.contains(event.target)) {
                 closeUserSettingsDropdown();
             }
@@ -423,9 +424,11 @@ function toggleUserSettingsDropdown(userBtn) {
                 drawerContent.classList.toggle('closedDrawer', wasOpen);
             }
         } finally {
-            setTimeout(() => {
-                isBypassingUserSettingsIntercept = false;
-            }, 100);
+            queueMicrotask(() => {
+                setTimeout(() => {
+                    isBypassingUserSettingsIntercept = false;
+                }, 50);
+            });
         }
     });
 
@@ -441,6 +444,7 @@ function toggleUserSettingsDropdown(userBtn) {
     const llmShortcutText = formatHotkey(hotkeys.llm);
     const llmShortcut = element('span', 'tt-eal-item-shortcut', llmShortcutText === 'None' ? '' : llmShortcutText);
     llmItem.append(llmIcon, llmLabel, llmShortcut);
+    llmItem.setAttribute('aria-keyshortcuts', llmShortcutText === 'None' ? '' : llmShortcutText);
     llmItem.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
@@ -457,6 +461,7 @@ function toggleUserSettingsDropdown(userBtn) {
     const frontendShortcutText = formatHotkey(hotkeys.frontend);
     const frontendShortcut = element('span', 'tt-eal-item-shortcut', frontendShortcutText === 'None' ? '' : frontendShortcutText);
     frontendItem.append(frontendIcon, frontendLabel, frontendShortcut);
+    frontendItem.setAttribute('aria-keyshortcuts', frontendShortcutText === 'None' ? '' : frontendShortcutText);
     frontendItem.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
@@ -473,6 +478,7 @@ function toggleUserSettingsDropdown(userBtn) {
     const backendShortcutText = formatHotkey(hotkeys.backend);
     const backendShortcut = element('span', 'tt-eal-item-shortcut', backendShortcutText === 'None' ? '' : backendShortcutText);
     backendItem.append(backendIcon, backendLabel, backendShortcut);
+    backendItem.setAttribute('aria-keyshortcuts', backendShortcutText === 'None' ? '' : backendShortcutText);
     backendItem.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
@@ -481,19 +487,53 @@ function toggleUserSettingsDropdown(userBtn) {
     });
 
     dropdown.append(userSettingsItem, llmItem, frontendItem, backendItem);
+    enableMenuKeyboardNavigation(dropdown, '.tt-eal-user-dropdown-item');
+    document.body.append(dropdown);
+    activeUserDropdownElement = dropdown;
 
     const rect = userBtn.getBoundingClientRect();
     const isTopBar = rect.top < 100;
     if (isTopBar) {
         dropdown.style.top = `${rect.bottom + 6}px`;
-        dropdown.style.left = `${Math.max(8, rect.left)}px`;
+        const dropdownWidth = dropdown.offsetWidth || 230;
+        const maxLeft = Math.max(8, window.innerWidth - dropdownWidth - 8);
+        dropdown.style.left = `${Math.min(maxLeft, Math.max(8, rect.left))}px`;
     } else {
         dropdown.style.top = `${rect.top}px`;
         dropdown.style.left = `${rect.right + 8}px`;
     }
+}
 
-    document.body.append(dropdown);
-    activeUserDropdownElement = dropdown;
+function enableMenuKeyboardNavigation(container, selector) {
+    if (!container || typeof container.addEventListener !== 'function') {
+        return;
+    }
+    container.addEventListener('keydown', event => {
+        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Home' && event.key !== 'End') {
+            return;
+        }
+        const items = [...container.querySelectorAll(selector)].filter(el => !el.disabled && el.offsetParent !== null);
+        if (!items.length) {
+            return;
+        }
+        const currentIndex = items.indexOf(document.activeElement);
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            const nextIndex = currentIndex < 0 || currentIndex === items.length - 1 ? 0 : currentIndex + 1;
+            items[nextIndex].focus();
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            const prevIndex = currentIndex <= 0 ? items.length - 1 : currentIndex - 1;
+            items[prevIndex].focus();
+        } else if (event.key === 'Home') {
+            event.preventDefault();
+            items[0].focus();
+        } else if (event.key === 'End') {
+            event.preventDefault();
+            items[items.length - 1].focus();
+        }
+    });
 }
 
 function updateDrawerShortcuts(drawer) {
@@ -510,9 +550,7 @@ function updateDrawerShortcuts(drawer) {
     ];
 
     for (const item of items) {
-        const btn = item.panel
-            ? drawer.querySelector(`[data-tt-eal-panel="${item.panel}"]`)
-            : drawer.querySelector(`[data-tt-eal-action="${item.action}"]`);
+        const btn = drawer.querySelector(`[data-tt-eal-panel="${item.panel}"]`);
         if (!btn) {
             continue;
         }
@@ -522,6 +560,7 @@ function updateDrawerShortcuts(drawer) {
             sc.textContent = formatted === 'None' ? '' : formatted;
         }
         btn.title = formatted === 'None' ? item.title : `${item.title} (${formatted})`;
+        btn.setAttribute('aria-keyshortcuts', formatted === 'None' ? '' : formatted);
     }
 }
 
@@ -537,17 +576,6 @@ function updateSettingsUI(settings) {
     if (topbarCheckbox && dropdownCheckbox) {
         topbarCheckbox.checked = settings.showTopbarIcon;
         dropdownCheckbox.checked = settings.showUserSettingsDropdown;
-
-        if (settings.showUserSettingsDropdown) {
-            topbarLabel?.classList.add('tt-eal-setting-disabled');
-            dropdownLabel?.classList.remove('tt-eal-setting-disabled');
-        } else if (settings.showTopbarIcon) {
-            dropdownLabel?.classList.add('tt-eal-setting-disabled');
-            topbarLabel?.classList.remove('tt-eal-setting-disabled');
-        } else {
-            topbarLabel?.classList.remove('tt-eal-setting-disabled');
-            dropdownLabel?.classList.remove('tt-eal-setting-disabled');
-        }
     }
 
     if (drawerElement) {
@@ -606,6 +634,8 @@ function setupSettingsPanel() {
     let recordingKeyDownListener = null;
     let recordingKeyUpListener = null;
     let recordingPendingModifier = null;
+    let recordingOutsidePointerListener = null;
+    let recordingBlurListener = null;
 
     function stopRecording() {
         if (recordingAction && hotkeyButtons[recordingAction]) {
@@ -620,6 +650,14 @@ function setupSettingsPanel() {
         if (recordingKeyUpListener) {
             window.removeEventListener('keyup', recordingKeyUpListener, { capture: true });
             recordingKeyUpListener = null;
+        }
+        if (recordingOutsidePointerListener) {
+            window.removeEventListener('pointerdown', recordingOutsidePointerListener, { capture: true });
+            recordingOutsidePointerListener = null;
+        }
+        if (recordingBlurListener && recordingAction && hotkeyButtons[recordingAction]) {
+            hotkeyButtons[recordingAction].removeEventListener('blur', recordingBlurListener);
+            recordingBlurListener = null;
         }
         recordingAction = null;
         recordingPendingModifier = null;
@@ -715,6 +753,22 @@ function setupSettingsPanel() {
                 updateDrawerShortcuts(drawerElement);
             }
         };
+
+        recordingOutsidePointerListener = event => {
+            if (!btn.contains(event.target)) {
+                stopRecording();
+            }
+        };
+        setTimeout(() => {
+            if (recordingAction === actionId) {
+                window.addEventListener('pointerdown', recordingOutsidePointerListener, { capture: true });
+            }
+        }, 0);
+
+        recordingBlurListener = () => {
+            stopRecording();
+        };
+        btn.addEventListener('blur', recordingBlurListener, { once: true });
 
         window.addEventListener('keydown', recordingKeyDownListener, { capture: true });
         window.addEventListener('keyup', recordingKeyUpListener, { capture: true });
@@ -844,7 +898,9 @@ function positionDrawerPanel(drawer) {
     const isTopBar = rect.top < 100;
     if (isTopBar) {
         panel.style.top = `${rect.bottom + 6}px`;
-        panel.style.left = `${Math.max(8, rect.left)}px`;
+        const panelWidth = panel.offsetWidth || 230;
+        const maxLeft = Math.max(8, window.innerWidth - panelWidth - 8);
+        panel.style.left = `${Math.min(maxLeft, Math.max(8, rect.left))}px`;
         panel.style.right = 'auto';
         panel.style.bottom = 'auto';
     } else {
