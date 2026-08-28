@@ -2,6 +2,29 @@
 
 All notable changes to the **TauriTavern Easy Access Logs** extension are documented in this file.
 
+## [2.2.0]
+
+### Added
+- **Standalone Modifier Hotkeys**: Added support for individual modifier keys (<kbd>Ctrl</kbd>, <kbd>Alt</kbd>, <kbd>Shift</kbd>) and <kbd>Tab</kbd> as standalone shortcuts. Standalone modifiers trigger cleanly on key release without interfering with combo keydown execution.
+- **Keyboard Arrow Menu Navigation**: Full keyboard navigation (<kbd>ArrowUp</kbd>, <kbd>ArrowDown</kbd>, <kbd>Home</kbd>, <kbd>End</kbd>, <kbd>Enter</kbd>, <kbd>Space</kbd>) across both the top bar drawer panel and the User Settings launcher dropdown.
+- **Dynamic Accessibility Shortcuts**: Added real-time synchronization of `aria-keyshortcuts` attributes on all menu items when keybindings are customized.
+- **Live Log Level Status Counter**: Frontend and Backend log viewer status bars now indicate the active log level filter (e.g. `0 shown (ERROR) · 142 loaded`).
+
+### Fixed
+- **TauriTavern User Settings Drawer Integration**: Fixed re-triggering of the launcher dropdown when clicking inside the User Settings window; clicking User Settings again in the top bar now cleanly closes the drawer instead of reopening the menu.
+- **Dropdown Viewport Bounding**: Clamped menu positions within the screen viewport to prevent floating menus from overflowing or clipping off the right edge on narrow displays.
+- **Subpixel Pixel Alignment**: Rounded floating coordinates to physical integer pixels, eliminating subpixel text jitter and blur on high-DPI Windows display scaling.
+- **Auto-Dismiss on Page Scroll**: Added passive scroll listener to dismiss open floating menus when the page scrolls.
+- **Outside Click Exception Handling**: Replaced obsolete button identifier with `getUserSettingsToggle()`, preventing runtime `ReferenceError` during outside clicks.
+- **Hotkey Recorder Auto-Cancel**: Automatically cancels the `Press keys...` recording state if the user clicks outside or switches focus away.
+- **Mouse Click During Modifier Press**: Suppressed standalone modifier activation when mouse clicks occur during a modifier hold (e.g. <kbd>Ctrl</kbd> + Left Click).
+- **User Settings Icon Alignment**: Centered the User Settings icon (`fa-user-cog`) with fixed dimensions to match other launcher items.
+
+### Removed
+- **Immersive Fullscreen Feature**: Removed the extension's redundant fullscreen toggle and hotkey in favor of TauriTavern's native canary fullscreen implementation.
+
+---
+
 ## [2.1.0]
 
 ### Added
